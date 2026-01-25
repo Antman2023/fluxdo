@@ -32,10 +32,6 @@ class ProfilePage extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageState extends ConsumerState<ProfilePage> {
-  // 缓存头像 widget，避免重复创建导致闪烁
-  Widget? _cachedAvatarWidget;
-  int? _cachedUserId;
-
   @override
   void initState() {
     super.initState();
@@ -46,29 +42,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         if (current != null) {
           // 使用 refresh 在后台更新数据，不会触发 loading 状态，避免 UI 闪烁
           // 忽略返回值，因为我们只是触发后台刷新
-          ref.refresh(currentUserProvider.future).ignore();
+          ref.read(currentUserProvider.notifier).refreshSilently().ignore();
           ref.refresh(userSummaryProvider.future).ignore();
         }
       }
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 在这里初始化头像 widget，此时可以安全地访问 Theme.of(context)
-    final user = ref.read(currentUserProvider).value;
-    if (_cachedAvatarWidget == null || _cachedUserId != user?.id) {
-      _initAvatarWidget(user);
-    }
-  }
-
-  void _initAvatarWidget(User? user) {
-    _cachedAvatarWidget = _ProfileAvatar(
-      key: ValueKey('profile-avatar-${user?.id}'),
-      user: user,
-    );
-    _cachedUserId = user?.id;
   }
 
   Future<void> _goToLogin() async {
@@ -104,20 +82,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final userAsync = ref.watch(currentUserProvider);
-    final summaryAsync = ref.watch(userSummaryProvider);
-
-    final user = userAsync.value;
-    final summary = summaryAsync.value;
-    
-    final isLoadingInitial = userAsync.isLoading && !userAsync.hasValue;
-    final hasError = userAsync.hasError && !userAsync.hasValue;
+    final isLoggedIn = ref.watch(currentUserProvider.select((value) => value.value != null));
+    final isLoadingInitial = ref.watch(
+      currentUserProvider.select((value) => value.isLoading && !value.hasValue),
+    );
+    final hasError = ref.watch(
+      currentUserProvider.select((value) => value.hasError && !value.hasValue),
+    );
+    final errorMessage = ref.watch(
+      currentUserProvider.select((value) => value.error?.toString() ?? ''),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的'),
         centerTitle: true,
-        actions: user != null ? const [Padding(
+        actions: isLoggedIn ? const [Padding(
           padding: EdgeInsets.only(right: 8.0),
           child: NotificationIconButton(),
         )] : null,
@@ -126,10 +106,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         onRefresh: () async {
           final current = ref.read(currentUserProvider).value;
           if (current == null) return;
-          ref.invalidate(currentUserProvider);
+          await ref.read(currentUserProvider.notifier).refreshSilently();
           ref.invalidate(userSummaryProvider);
           final service = ref.read(discourseServiceProvider);
-          final user = await ref.read(currentUserProvider.future);
+          final user = ref.read(currentUserProvider).value;
           if (user != null) {
             await service.getUserSummary(user.username, forceRefresh: true);
           }
@@ -137,7 +117,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
-            _buildUserHeader(theme, user, isLoadingInitial, userAsync.error.toString()),
+            const _ProfileHeader(),
             const SizedBox(height: 24),
             
             if (isLoadingInitial)
@@ -146,11 +126,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 child: LoadingSpinner(),
               ))
             else if (hasError)
-              _buildError(theme, userAsync.error.toString())
-            else if (user != null && summary != null) ...[
-              _buildStatsRow(theme, summary),
-              const SizedBox(height: 24),
-            ],
+              _buildError(theme, errorMessage)
+            else
+              Consumer(
+                builder: (context, ref, _) {
+                  final summary = ref.watch(userSummaryProvider.select((value) => value.value));
+                  final loggedIn = ref.watch(
+                    currentUserProvider.select((value) => value.value != null),
+                  );
+                  if (!loggedIn || summary == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Column(
+                    children: [
+                      _buildStatsRow(theme, summary),
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                },
+              ),
 
             Consumer(
               builder: (context, ref, _) {
@@ -165,179 +159,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               },
             ),
 
-            if (user != null) ...[
+            if (isLoggedIn) ...[
               _buildOptionsCard(theme),
               const SizedBox(height: 20),
             ],
             _buildAboutCard(theme),
             const SizedBox(height: 32),
-            _buildAuthButton(theme, user != null),
+            _buildAuthButton(theme, isLoggedIn),
             const SizedBox(height: 48),
           ],
         ),
-      ),
-    );
-  }
-  
-  Widget _buildUserHeader(ThemeData theme, User? user, bool isLoading, String? error) {
-    return GestureDetector(
-      onTap: user != null ? () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => UserProfilePage(username: user.username)),
-        );
-      } : null,
-      child: Container(
-        color: Colors.transparent,
-        child: Row(
-          children: [
-            // 使用缓存的头像 widget
-            _cachedAvatarWidget ?? const SizedBox(width: 72, height: 72),
-            const SizedBox(width: 20),
-            // 用户信息
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user?.name ?? user?.username ?? (user == null ? '未登录' : '加载中...'),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (user != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '@${user.username}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // 等级标签和状态
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4, 
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                         // 回归标准 Chip 风格，保持质感但不过分
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _getTrustLevelLabel(user.trustLevel),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSecondaryContainer,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        // 状态外显
-                        if (user.status != null)
-                          _buildStatusChip(user.status!, theme),
-                      ],
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '登录后体验更多功能',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-             if (user != null)
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                child: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getTrustLevelLabel(int level) {
-    switch (level) {
-      case 0: return 'L0 新 user';
-      case 1: return 'L1 基本用户';
-      case 2: return 'L2 成员';
-      case 3: return 'L3 活跃用户';
-      case 4: return 'L4 领袖';
-      default: return 'L$level';
-    }
-  }
-
-  Widget _buildStatusEmoji(UserStatus status) {
-    final emoji = status.emoji;
-    if (emoji == null || emoji.isEmpty) return const SizedBox.shrink();
-
-    final isEmojiName = emoji.contains(RegExp(r'[a-zA-Z0-9_]')) && !emoji.contains(RegExp(r'[^\x00-\x7F]'));
-
-    if (isEmojiName) {
-      final cleanName = emoji.replaceAll(':', '');
-      final emojiUrl = 'https://linux.do/images/emoji/twitter/$cleanName.png?v=12';
-      
-      return Image(
-        image: discourseImageProvider(emojiUrl),
-        width: 14,
-        height: 14,
-        fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-      );
-    }
-
-    return Text(
-      emoji,
-      style: const TextStyle(fontSize: 12, height: 1.2),
-    );
-  }
-
-  Widget _buildStatusChip(UserStatus status, ThemeData theme) {
-    final emoji = status.emoji;
-    final description = status.description;
-
-    if ((emoji == null || emoji.isEmpty) && (description == null || description.isEmpty)) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (emoji != null && emoji.isNotEmpty) ...[
-            _buildStatusEmoji(status),
-            if (description != null && description.isNotEmpty)
-              const SizedBox(width: 4),
-          ],
-          if (description != null && description.isNotEmpty)
-            Flexible(
-              child: Text(
-                description,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -613,11 +444,170 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 }
 
+class _ProfileHeader extends ConsumerWidget {
+  const _ProfileHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(currentUserProvider.select((value) => value.value?.id));
+    final username = ref.watch(currentUserProvider.select((value) => value.value?.username));
+    final isLoggedIn = ref.watch(currentUserProvider.select((value) => value.value != null));
+    final canNavigate = username != null && username.isNotEmpty;
+
+    return GestureDetector(
+      onTap: canNavigate
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => UserProfilePage(username: username)),
+              );
+            }
+          : null,
+      child: Container(
+        color: Colors.transparent,
+        child: Row(
+          children: [
+            _ProfileAvatarSection(userId: userId, isLoggedIn: isLoggedIn),
+            const SizedBox(width: 20),
+            const Expanded(child: _ProfileInfoSection()),
+            if (isLoggedIn)
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileAvatarSection extends ConsumerWidget {
+  final int? userId;
+  final bool isLoggedIn;
+
+  const _ProfileAvatarSection({
+    required this.userId,
+    required this.isLoggedIn,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final avatarUrl = ref.watch(
+      currentUserProvider.select((value) => value.value?.getAvatarUrl() ?? ''),
+    );
+    final flairUrl = ref.watch(currentUserProvider.select((value) => value.value?.flairUrl));
+    final flairName = ref.watch(currentUserProvider.select((value) => value.value?.flairName));
+    final flairBgColor = ref.watch(currentUserProvider.select((value) => value.value?.flairBgColor));
+    final flairColor = ref.watch(currentUserProvider.select((value) => value.value?.flairColor));
+
+    return _ProfileAvatar(
+      key: ValueKey('profile-avatar-$userId'),
+      userId: userId,
+      avatarUrl: avatarUrl,
+      isLoggedIn: isLoggedIn,
+      flairUrl: flairUrl,
+      flairName: flairName,
+      flairBgColor: flairBgColor,
+      flairColor: flairColor,
+    );
+  }
+}
+
+class _ProfileInfoSection extends ConsumerWidget {
+  const _ProfileInfoSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final name = ref.watch(currentUserProvider.select((value) => value.value?.name));
+    final username = ref.watch(currentUserProvider.select((value) => value.value?.username));
+    final trustLevel = ref.watch(currentUserProvider.select((value) => value.value?.trustLevel));
+    final status = ref.watch(currentUserProvider.select((value) => value.value?.status));
+    final isLoggedIn = ref.watch(currentUserProvider.select((value) => value.value != null));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          name ?? username ?? (isLoggedIn ? '加载中...' : '未登录'),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (isLoggedIn) ...[
+          const SizedBox(height: 4),
+          Text(
+            '@${username ?? ''}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _getTrustLevelLabel(trustLevel ?? 0),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSecondaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (status != null) _buildStatusChip(status, theme),
+            ],
+          ),
+        ] else ...[
+          const SizedBox(height: 4),
+          Text(
+            '登录后体验更多功能',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// 独立的头像组件，使用 AutomaticKeepAliveClientMixin 避免重建
 class _ProfileAvatar extends StatefulWidget {
-  final User? user;
+  final int? userId;
+  final String avatarUrl;
+  final bool isLoggedIn;
+  final String? flairUrl;
+  final String? flairName;
+  final String? flairBgColor;
+  final String? flairColor;
 
-  const _ProfileAvatar({super.key, required this.user});
+  const _ProfileAvatar({
+    super.key,
+    required this.userId,
+    required this.avatarUrl,
+    required this.isLoggedIn,
+    this.flairUrl,
+    this.flairName,
+    this.flairBgColor,
+    this.flairColor,
+  });
 
   @override
   State<_ProfileAvatar> createState() => _ProfileAvatarState();
@@ -627,7 +617,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
   late String _avatarUrl;
   ImageProvider? _cachedImageProvider;
   Widget? _cachedAvatarWithFlair;
-  String? _cachedFlairUrl;
+  String _cachedFlairSignature = '';
 
   @override
   bool get wantKeepAlive => true;
@@ -635,8 +625,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
   @override
   void initState() {
     super.initState();
-    _avatarUrl = widget.user?.getAvatarUrl() ?? '';
-    _cachedFlairUrl = widget.user?.flairUrl;
+    _avatarUrl = widget.avatarUrl;
+    _cachedFlairSignature = _buildFlairSignature();
     if (_avatarUrl.isNotEmpty) {
       _cachedImageProvider = discourseImageProvider(_avatarUrl);
     }
@@ -646,8 +636,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
   void didUpdateWidget(_ProfileAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     // 只有当 URL 真的变化时才更新 ImageProvider
-    final newUrl = widget.user?.getAvatarUrl() ?? '';
-    final newFlairUrl = widget.user?.flairUrl;
+    final newUrl = widget.avatarUrl;
+    final newFlairSignature = _buildFlairSignature();
 
     if (newUrl != _avatarUrl) {
       _avatarUrl = newUrl;
@@ -655,8 +645,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
       _cachedAvatarWithFlair = null; // 头像变化，清除缓存
     }
 
-    if (newFlairUrl != _cachedFlairUrl) {
-      _cachedFlairUrl = newFlairUrl;
+    if (newFlairSignature != _cachedFlairSignature) {
+      _cachedFlairSignature = newFlairSignature;
       _cachedAvatarWithFlair = null; // flair 变化，清除缓存
     }
   }
@@ -671,17 +661,16 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
     }
 
     final theme = Theme.of(context);
-    final user = widget.user;
 
     _cachedAvatarWithFlair = AvatarWithFlair(
-      key: ValueKey('profile-avatar-flair-${user?.id}-${user?.flairUrl}'),
+      key: ValueKey('profile-avatar-flair-${widget.userId}-${widget.flairUrl}'),
       flairSize: 24,
       flairRight: -2,
       flairBottom: -2,
-      flairUrl: user?.flairUrl,
-      flairName: user?.flairName,
-      flairBgColor: user?.flairBgColor,
-      flairColor: user?.flairColor,
+      flairUrl: widget.flairUrl,
+      flairName: widget.flairName,
+      flairBgColor: widget.flairBgColor,
+      flairColor: widget.flairColor,
       avatar: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
@@ -696,7 +685,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
           backgroundImage: _cachedImageProvider,
           child: _avatarUrl.isEmpty
               ? Icon(
-                  user != null ? Icons.person : Icons.person_outline,
+                  widget.isLoggedIn ? Icons.person : Icons.person_outline,
                   size: 36,
                   color: theme.colorScheme.onSurfaceVariant,
                 )
@@ -707,4 +696,89 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
 
     return _cachedAvatarWithFlair!;
   }
+
+  String _buildFlairSignature() {
+    return '${widget.flairUrl}|${widget.flairName}|${widget.flairBgColor}|${widget.flairColor}';
+  }
+}
+
+String _getTrustLevelLabel(int level) {
+  switch (level) {
+    case 0:
+      return 'L0 新 user';
+    case 1:
+      return 'L1 基本用户';
+    case 2:
+      return 'L2 成员';
+    case 3:
+      return 'L3 活跃用户';
+    case 4:
+      return 'L4 领袖';
+    default:
+      return 'L$level';
+  }
+}
+
+Widget _buildStatusEmoji(UserStatus status) {
+  final emoji = status.emoji;
+  if (emoji == null || emoji.isEmpty) return const SizedBox.shrink();
+
+  final isEmojiName =
+      emoji.contains(RegExp(r'[a-zA-Z0-9_]')) && !emoji.contains(RegExp(r'[^\x00-\x7F]'));
+
+  if (isEmojiName) {
+    final cleanName = emoji.replaceAll(':', '');
+    final emojiUrl = 'https://linux.do/images/emoji/twitter/$cleanName.png?v=12';
+
+    return Image(
+      image: discourseImageProvider(emojiUrl),
+      width: 14,
+      height: 14,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    );
+  }
+
+  return Text(
+    emoji,
+    style: const TextStyle(fontSize: 12, height: 1.2),
+  );
+}
+
+Widget _buildStatusChip(UserStatus status, ThemeData theme) {
+  final emoji = status.emoji;
+  final description = status.description;
+
+  if ((emoji == null || emoji.isEmpty) && (description == null || description.isEmpty)) {
+    return const SizedBox.shrink();
+  }
+
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (emoji != null && emoji.isNotEmpty) ...[
+          _buildStatusEmoji(status),
+          if (description != null && description.isNotEmpty) const SizedBox(width: 4),
+        ],
+        if (description != null && description.isNotEmpty)
+          Flexible(
+            child: Text(
+              description,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    ),
+  );
 }

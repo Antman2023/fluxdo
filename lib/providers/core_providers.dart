@@ -43,6 +43,16 @@ class CurrentUserNotifier extends AsyncNotifier<User?> {
     return _mergeUser(user, preloadedUser);
   }
 
+  Future<void> refreshSilently() async {
+    final service = ref.read(discourseServiceProvider);
+    final previous = state.value;
+    if (previous != null || state.hasValue) {
+      state = AsyncValue.data(previous);
+    }
+    final user = await _loadUser(service);
+    state = AsyncValue.data(user);
+  }
+
   void _refreshUser(DiscourseService service, User preloadedUser) {
     Future(() async {
       final user = await service.getCurrentUser();

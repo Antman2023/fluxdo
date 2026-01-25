@@ -10,14 +10,27 @@ import 'message_bus_service_provider.dart';
 /// 通知计数 Notifier
 /// 优先使用 MessageBus 推送的计数，初始值从 currentUser 获取
 class NotificationCountNotifier extends Notifier<NotificationCountState> {
+  static NotificationCountState? _lastState;
+  static bool _hasLiveUpdate = false;
+
   @override
   NotificationCountState build() {
     final user = ref.watch(currentUserProvider).value;
-    return NotificationCountState(
+    if (user == null) {
+      _hasLiveUpdate = false;
+      _lastState = null;
+      return const NotificationCountState();
+    }
+    final initial = NotificationCountState(
       allUnread: user?.allUnreadNotificationsCount ?? 0,
       unread: user?.unreadNotifications ?? 0,
       highPriority: user?.unreadHighPriorityNotifications ?? 0,
     );
+    if (_hasLiveUpdate && _lastState != null) {
+      return _lastState!;
+    }
+    _lastState = initial;
+    return initial;
   }
 
   void update({int? allUnread, int? unread, int? highPriority}) {
@@ -26,11 +39,15 @@ class NotificationCountNotifier extends Notifier<NotificationCountState> {
       unread: unread,
       highPriority: highPriority,
     );
+    _hasLiveUpdate = true;
+    _lastState = state;
   }
   
   /// 标记所有已读后重置计数
   void markAllRead() {
     state = const NotificationCountState();
+    _hasLiveUpdate = true;
+    _lastState = state;
   }
 }
 
