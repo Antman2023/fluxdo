@@ -145,6 +145,7 @@ class _MainPageState extends ConsumerState<MainPage> {
   ProviderSubscription<AsyncValue<String>>? _authErrorSub;
   ProviderSubscription<AsyncValue<void>>? _authStateSub;
   ProviderSubscription<AsyncValue<User?>>? _currentUserSub;
+  ProviderSubscription<void>? _messageBusSub;
   bool _messageBusInitialized = false;
   int? _lastTappedIndex;
   DateTime? _lastTapTime;
@@ -183,10 +184,13 @@ class _MainPageState extends ConsumerState<MainPage> {
         _messageBusInitialized = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ref.read(messageBusInitProvider);
+          _messageBusSub?.close();
+          _messageBusSub = ref.listenManual<void>(messageBusInitProvider, (_, __) {});
         });
       } else if (user == null) {
         _messageBusInitialized = false;
+        _messageBusSub?.close();
+        _messageBusSub = null;
       }
     });
   }
@@ -224,6 +228,7 @@ class _MainPageState extends ConsumerState<MainPage> {
     _authErrorSub?.close();
     _authStateSub?.close();
     _currentUserSub?.close();
+    _messageBusSub?.close();
     super.dispose();
   }
 
