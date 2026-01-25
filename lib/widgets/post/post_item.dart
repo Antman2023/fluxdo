@@ -63,7 +63,7 @@ class _PostItemState extends ConsumerState<PostItem> {
 
   // 书签状态
   bool _isBookmarked = false;
-  int? _bookmarkId;
+  int? _bookmarkId; // 本地保存的书签 ID（用于当前会话添加的书签）
   bool _isBookmarking = false;
 
   // 回应状态
@@ -114,6 +114,7 @@ class _PostItemState extends ConsumerState<PostItem> {
     _reactions = List.from(widget.post.reactions ?? []);
     _currentUserReaction = widget.post.currentUserReaction;
     _isBookmarked = widget.post.bookmarked;
+    _bookmarkId = widget.post.bookmarkId; // 初始化书签 ID
   }
 
   void _initAvatarWidget() {
@@ -434,18 +435,21 @@ class _PostItemState extends ConsumerState<PostItem> {
 
     try {
       if (_isBookmarked) {
-        // 取消书签 - 需要书签 ID
-        if (_bookmarkId != null) {
-          final success = await _service.deleteBookmark(_bookmarkId!);
+        // 取消书签 - 优先使用本地保存的 ID，否则使用 Post 模型中的 ID
+        final bookmarkId = _bookmarkId ?? widget.post.bookmarkId;
+        if (bookmarkId != null) {
+          final success = await _service.deleteBookmark(bookmarkId);
           if (mounted && success) {
             setState(() {
               _isBookmarked = false;
               _bookmarkId = null;
             });
             _showSnackBar('已取消书签');
+          } else if (mounted) {
+            _showSnackBar('取消书签失败');
           }
         } else {
-          _showSnackBar('无法取消书签');
+          _showSnackBar('无法取消书签：缺少书签 ID');
         }
       } else {
         // 添加书签
@@ -453,7 +457,7 @@ class _PostItemState extends ConsumerState<PostItem> {
         if (mounted && bookmarkId != null) {
           setState(() {
             _isBookmarked = true;
-            _bookmarkId = bookmarkId;
+            _bookmarkId = bookmarkId; // 保存书签 ID
           });
           _showSnackBar('已添加书签');
         } else if (mounted) {
@@ -729,12 +733,49 @@ class _PostItemState extends ConsumerState<PostItem> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        TimeUtils.formatRelativeTime(post.createdAt),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                          fontSize: 11,
-                        ),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Text(
+                            TimeUtils.formatRelativeTime(post.createdAt),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                              fontSize: 11,
+                            ),
+                          ),
+                          Positioned(
+                            right: -6, // 右上角角标位置，稍微向右偏移但不回贴边
+                            top: -2,  // 稍微向上偏移
+                            child: Consumer(
+                              builder: (context, ref, _) {
+                                // 监听会话已读状态
+                                final sessionState = ref.watch(topicSessionProvider(widget.topicId));
+                                // 判断是否显示：服务器说是未读 + 本机没读过
+                                final isNew = !widget.post.read;
+                                final isReadInSession = sessionState.readPostNumbers.contains(widget.post.postNumber);
+                                final show = isNew && !isReadInSession;
+
+                                return AnimatedOpacity(
+                                  opacity: show ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeOut,
+                                  child: Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: theme.colorScheme.surface, // 添加描边，增加对比度
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

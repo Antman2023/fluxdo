@@ -305,6 +305,8 @@ class Post {
   final bool canRecover;
   final bool canWiki;
   final bool bookmarked;
+  final int? bookmarkId; // 书签 ID（用于删除书签）
+  final bool read; // 是否已读
   final List<dynamic>? actionsSummary;
   final List<LinkCount>? linkCounts; // 链接点击统计
   final List<PostReaction>? reactions; // 回应/表情
@@ -348,6 +350,8 @@ class Post {
     this.canRecover = false,
     this.canWiki = false,
     this.bookmarked = false,
+    this.bookmarkId,
+    this.read = false,
     this.actionsSummary,
     this.linkCounts,
     this.reactions,
@@ -389,6 +393,8 @@ class Post {
       canRecover: json['can_recover'] as bool? ?? false,
       canWiki: json['can_wiki'] as bool? ?? false,
       bookmarked: json['bookmarked'] as bool? ?? false,
+      bookmarkId: json['bookmark_id'] as int?,
+      read: json['read'] as bool? ?? false,
       actionsSummary: json['actions_summary'] as List<dynamic>?,
       linkCounts: (json['link_counts'] as List<dynamic>?)
           ?.map((e) => LinkCount.fromJson(e as Map<String, dynamic>))

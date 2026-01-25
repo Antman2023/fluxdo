@@ -317,6 +317,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
               canRecover: updatedPost.canRecover,
               canWiki: updatedPost.canWiki,
               bookmarked: updatedPost.bookmarked,
+              read: currentPosts[index].read, // 保留原 read 状态
               actionsSummary: updatedPost.actionsSummary,
               linkCounts: updatedPost.linkCounts,
               reactions: updatedPost.reactions,
@@ -425,6 +426,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       canRecover: oldPost.canRecover,
       canWiki: oldPost.canWiki,
       bookmarked: oldPost.bookmarked,
+      read: oldPost.read,
       actionsSummary: oldPost.actionsSummary,
       linkCounts: oldPost.linkCounts,
       reactions: oldPost.reactions,
@@ -483,6 +485,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       canRecover: oldPost.canRecover,
       canWiki: oldPost.canWiki,
       bookmarked: oldPost.bookmarked,
+      read: oldPost.read,
       actionsSummary: oldPost.actionsSummary,
       linkCounts: oldPost.linkCounts,
       // 更新这两个字段

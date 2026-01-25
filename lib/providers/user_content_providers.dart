@@ -59,7 +59,7 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
   }
 }
 
-final browsingHistoryProvider = AsyncNotifierProvider<BrowsingHistoryNotifier, List<Topic>>(() {
+final browsingHistoryProvider = AsyncNotifierProvider.autoDispose<BrowsingHistoryNotifier, List<Topic>>(() {
   return BrowsingHistoryNotifier();
 });
 
@@ -120,7 +120,7 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
   }
 }
 
-final bookmarksProvider = AsyncNotifierProvider<BookmarksNotifier, List<Topic>>(() {
+final bookmarksProvider = AsyncNotifierProvider.autoDispose<BookmarksNotifier, List<Topic>>(() {
   return BookmarksNotifier();
 });
 
@@ -181,6 +181,6 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
   }
 }
 
-final myTopicsProvider = AsyncNotifierProvider<MyTopicsNotifier, List<Topic>>(() {
+final myTopicsProvider = AsyncNotifierProvider.autoDispose<MyTopicsNotifier, List<Topic>>(() {
   return MyTopicsNotifier();
 });
