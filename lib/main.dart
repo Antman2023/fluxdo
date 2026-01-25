@@ -13,11 +13,14 @@ import 'services/highlighter_service.dart';
 import 'services/discourse_service.dart';
 import 'services/network/cookie/cookie_sync_service.dart';
 import 'services/network/cookie/cookie_jar_service.dart';
+import 'services/network/adapters/cronet_fallback_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/preloaded_data_service.dart';
 import 'services/network/doh/network_settings_service.dart';
 import 'services/network/doh_proxy/proxy_certificate.dart';
 import 'services/network_logger.dart';
+import 'services/update_service.dart';
+import 'services/update_checker_helper.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/theme_provider.dart';
@@ -39,6 +42,9 @@ Future<void> main() async {
 
   // 初始化代理 CA 证书（非 Android 平台）
   await ProxyCertificate.initialize();
+
+  // 初始化 Cronet 降级服务
+  await CronetFallbackService.instance.initialize(prefs);
 
   // 初始化网络设置（DoH/代理）
   await NetworkSettingsService.instance.initialize(prefs);
@@ -149,11 +155,13 @@ class _MainPageState extends ConsumerState<MainPage> {
   void initState() {
     super.initState();
 
-
     // 设置导航 context（用于 CF 验证弹窗）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       DiscourseService().setNavigatorContext(context);
       PreloadedDataService().setNavigatorContext(context);
+
+      // 自动检查更新
+      _autoCheckUpdate();
     });
     // 监听登录失效事件
     _authErrorSub = ref.listenManual<AsyncValue<String>>(authErrorProvider, (_, next) {
@@ -166,6 +174,12 @@ class _MainPageState extends ConsumerState<MainPage> {
         }
       });
     });
+  }
+
+  Future<void> _autoCheckUpdate() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final updateService = UpdateService(prefs: prefs);
+    await UpdateCheckerHelper.checkUpdateOnStartup(context, updateService);
   }
 
   void _onDestinationSelected(int index) {

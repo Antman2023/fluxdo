@@ -71,7 +71,7 @@ _即将添加_
 4. **运行应用**
    ```bash
    # Android
-   flutter run
+   flutter run --dart-define=cronetHttpNoPlay=true
 
    # Windows
    flutter run -d windows
@@ -123,7 +123,7 @@ FluxDO 集成了基于 Rust 的 DOH (DNS over HTTPS) 代理，提供：
   - Android/iOS：FFI 调用
   - Windows/macOS/Linux：独立进程
 
-详细文档请参考 [core/doh_proxy/README.md](core/doh_proxy/README.md)
+详细文档请参考 [core/doh_proxy/README.md](https://github.com/Lingyan000/fluxdo_doh)
 
 ## 🤝 关于 Linux.do
 

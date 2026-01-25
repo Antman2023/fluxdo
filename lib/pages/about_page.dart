@@ -1,8 +1,114 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/update_service.dart';
+import '../widgets/update_dialog.dart';
 
-class AboutPage extends StatelessWidget {
+class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
+
+  @override
+  State<AboutPage> createState() => _AboutPageState();
+}
+
+class _AboutPageState extends State<AboutPage> {
+  final UpdateService _updateService = UpdateService();
+  String _version = '0.1.0';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final version = await _updateService.getCurrentVersion();
+    setState(() {
+      _version = version;
+    });
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (!mounted) return;
+
+    // 显示加载提示
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final updateInfo = await _updateService.checkForUpdate();
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 关闭加载对话框
+
+      if (updateInfo.hasUpdate) {
+        showDialog(
+          context: context,
+          builder: (context) => UpdateDialog(
+            updateInfo: updateInfo,
+            onUpdate: () {
+              Navigator.of(context).pop();
+              launchUrl(
+                Uri.parse(updateInfo.releaseUrl),
+                mode: LaunchMode.externalApplication,
+              );
+            },
+            onCancel: () => Navigator.of(context).pop(),
+          ),
+        );
+      } else {
+        _showNoUpdateDialog(updateInfo.currentVersion);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // 关闭加载对话框
+      _showErrorDialog(e.toString());
+    }
+  }
+
+  void _showNoUpdateDialog(String currentVersion) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+        title: const Text('已是最新版本'),
+        content: Text('当前版本: $currentVersion\n您正在使用最新版本的 FluxDO，无需更新。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('好'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String error) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+        title: const Text('检查更新失败'),
+        content: Text('无法检查更新，请稍后重试。\n错误信息: $error'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +143,7 @@ class AboutPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Version 0.1.0',
+                  'Version $_version',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -53,12 +159,7 @@ class AboutPage extends StatelessWidget {
             context,
             icon: Icons.update_rounded,
             title: '检查更新',
-            subtitle: '已是最新版本',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('当前已是最新版本')),
-              );
-            },
+            onTap: _checkForUpdate,
           ),
           _buildListTile(
             context,
@@ -67,7 +168,7 @@ class AboutPage extends StatelessWidget {
             onTap: () => showLicensePage(
               context: context,
               applicationName: 'FluxDO',
-              applicationVersion: '0.1.0',
+              applicationVersion: _version,
               applicationLegalese: '非官方 Linux.do 客户端\n基于 Flutter & Material 3',
             ),
           ),
@@ -79,24 +180,20 @@ class AboutPage extends StatelessWidget {
             context,
             icon: Icons.code,
             title: '项目源码',
-            subtitle: 'GitHub (Private)',
-            onTap: () {
-               // Placeholder for repo URL
-               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('仓库地址暂未公开')),
-              );
-            },
+            subtitle: 'GitHub',
+            onTap: () => launchUrl(
+              Uri.parse('https://github.com/Lingyan000/fluxdo'),
+              mode: LaunchMode.externalApplication,
+            ),
           ),
           _buildListTile(
             context,
             icon: Icons.bug_report_outlined,
             title: '反馈问题',
-            onTap: () {
-              // TODO: 跳转到 Feedback 话题或 Issue 页面
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请在 Linux.do 论坛反馈')),
-              );
-            },
+            onTap: () => launchUrl(
+              Uri.parse('https://github.com/Lingyan000/fluxdo/issues'),
+              mode: LaunchMode.externalApplication,
+            ),
           ),
           
           const SizedBox(height: 40),

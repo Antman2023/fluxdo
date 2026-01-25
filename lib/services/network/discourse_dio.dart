@@ -8,6 +8,7 @@ import 'cookie/app_cookie_manager.dart';
 import 'cookie/cookie_jar_service.dart';
 import 'cookie/cookie_sync_service.dart';
 import 'interceptors/cf_challenge_interceptor.dart';
+import 'interceptors/cronet_fallback_interceptor.dart';
 import 'interceptors/error_interceptor.dart';
 import 'interceptors/redirect_interceptor.dart';
 import 'interceptors/request_header_interceptor.dart';
@@ -39,7 +40,10 @@ class DiscourseDio {
       dio.interceptors.add(AppCookieManager(cookieJarService.cookieJar));
     }
 
-    // 3. 重试拦截器 (dio_smart_retry)
+    // 3. Cronet 降级拦截器（在重试拦截器之前）
+    dio.interceptors.add(CronetFallbackInterceptor(dio));
+
+    // 4. 重试拦截器 (dio_smart_retry)
     dio.interceptors.add(RetryInterceptor(
       dio: dio,
       logPrint: (msg) => debugPrint('[Dio Retry] $msg'),

@@ -101,7 +101,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Android Release
-        run: flutter build apk --release --target-platform ${{ matrix.flutter-target }}
+        run: flutter build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true
 
       # 8. 重命名产物
       - name: Rename APK
@@ -214,6 +214,22 @@ jobs:
             git log --no-merges --pretty=format:"%B" "$range" | \
             awk '!/Update changelog/ && NF {print "- " $0 "\n"}' >> "$out"
           done
+
+      - name: Wait for telegram-bot-api
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        if: env.TELEGRAM_BOT_TOKEN
+        run: |
+          for i in {1..20}; do
+            if curl -sf "http://localhost:8081/bot${TELEGRAM_BOT_TOKEN}/getMe" > /dev/null; then
+              echo "telegram-bot-api is ready"
+              exit 0
+            fi
+            echo "waiting for telegram-bot-api..."
+            sleep 2
+          done
+          echo "telegram-bot-api not ready"
+          exit 1
 
       - name: Send Telegram notification
         env:

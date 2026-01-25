@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -5,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/network_logger.dart';
 import '../services/network/doh/doh_resolver.dart';
 import '../services/network/doh/network_settings_service.dart';
+import 'network_adapter_settings_page.dart';
 
 class NetworkSettingsPage extends StatefulWidget {
   const NetworkSettingsPage({super.key});
@@ -67,6 +70,12 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               _buildServerList(theme, settings),
               const SizedBox(height: 24),
 
+              // 高级设置
+              _buildSectionHeader(theme, '高级'),
+              const SizedBox(height: 12),
+              _buildAdvancedCard(theme),
+              const SizedBox(height: 24),
+
               // 调试工具
               _buildSectionHeader(theme, '调试'),
               const SizedBox(height: 12),
@@ -104,6 +113,38 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
+  // ==================== 高级设置卡片 ====================
+
+  Widget _buildAdvancedCard(ThemeData theme) {
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          if (!Platform.isWindows)
+            ListTile(
+              leading: const Icon(Icons.settings_ethernet),
+              title: const Text('网络适配器'),
+              subtitle: const Text('管理 Cronet 和备用适配器设置'),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NetworkAdapterSettingsPage(),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
     );
   }
