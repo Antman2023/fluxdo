@@ -27,3 +27,6 @@ export 'search_provider.dart';
 
 // 表情相关
 export 'emoji_provider.dart';
+
+// 会话未读状态相关
+export 'topic_session_provider.dart';

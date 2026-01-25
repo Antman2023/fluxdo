@@ -72,6 +72,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
         print('[TopicDetail] onTimingsSent callback triggered: topicId=$topicId, highestSeen=$highestSeen');
         ref.read(topicListProvider(TopicListFilter.latest).notifier).updateSeen(topicId, highestSeen);
         ref.read(topicListProvider(TopicListFilter.unread).notifier).updateSeen(topicId, highestSeen);
+        // 更新会话已读状态，触发 PostItem 消除未读圆点
+        ref.read(topicSessionProvider(topicId).notifier).markAsRead(postNumbers);
       },
     );
 
