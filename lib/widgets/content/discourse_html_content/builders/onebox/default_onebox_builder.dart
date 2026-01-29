@@ -27,8 +27,9 @@ Widget buildDefaultOnebox({
   final iconElement = element.querySelector('img.site-icon');
   final iconUrl = iconElement?.attributes['src'] ?? '';
 
-  // 提取来源
+  // 提取来源（移除点击数 span）
   final sourceElement = element.querySelector('.source a');
+  extractAndRemoveClickCount(sourceElement); // 移除注入的点击数 span
   final sourceName = sourceElement?.text ?? '';
 
   // 提取缩略图

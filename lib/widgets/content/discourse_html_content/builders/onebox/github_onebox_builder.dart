@@ -370,10 +370,7 @@ class GithubOneboxBuilder {
                 ),
               ),
               if (clickCount != null && clickCount.isNotEmpty)
-                OneboxStatItem(
-                  icon: Icons.touch_app_outlined,
-                  value: clickCount,
-                ),
+                OneboxClickCount(count: clickCount),
             ],
           ),
           if (description.isNotEmpty) ...[
@@ -509,10 +506,7 @@ class GithubOneboxBuilder {
                 ),
               const Spacer(),
               if (clickCount != null && clickCount.isNotEmpty) ...[
-                OneboxStatItem(
-                  icon: Icons.touch_app_outlined,
-                  value: clickCount,
-                ),
+                OneboxClickCount(count: clickCount),
                 const SizedBox(width: 12),
               ],
               if (comments != null && comments.isNotEmpty)
@@ -644,10 +638,7 @@ class GithubOneboxBuilder {
               const Spacer(),
               // 点击数
               if (clickCount != null && clickCount.isNotEmpty) ...[
-                OneboxStatItem(
-                  icon: Icons.touch_app_outlined,
-                  value: clickCount,
-                ),
+                OneboxClickCount(count: clickCount),
                 const SizedBox(width: 12),
               ],
               // 行数变更
@@ -998,10 +989,7 @@ class GithubOneboxBuilder {
                 ),
               ),
               if (clickCount != null && clickCount.isNotEmpty)
-                OneboxStatItem(
-                  icon: Icons.touch_app_outlined,
-                  value: clickCount,
-                ),
+                OneboxClickCount(count: clickCount),
             ],
           ),
           // 描述
@@ -1140,10 +1128,7 @@ class GithubOneboxBuilder {
                 ),
               ),
               if (clickCount != null && clickCount.isNotEmpty)
-                OneboxStatItem(
-                  icon: Icons.touch_app_outlined,
-                  value: clickCount,
-                ),
+                OneboxClickCount(count: clickCount),
             ],
           ),
           // 运行详情

@@ -305,14 +305,12 @@ class OneboxSourceHeader extends StatelessWidget {
   final String? iconUrl;
   final String sourceName;
   final String? clickCount;
-  final Widget? trailing;
 
   const OneboxSourceHeader({
     super.key,
     this.iconUrl,
     required this.sourceName,
     this.clickCount,
-    this.trailing,
   });
 
   @override
@@ -343,10 +341,6 @@ class OneboxSourceHeader extends StatelessWidget {
         if (clickCount != null) ...[
           const SizedBox(width: 8),
           OneboxClickCount(count: clickCount!),
-        ],
-        if (trailing != null) ...[
-          const SizedBox(width: 8),
-          trailing!,
         ],
       ],
     );
