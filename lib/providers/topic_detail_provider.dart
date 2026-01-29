@@ -34,10 +34,13 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   bool _hasMoreBefore = true;
   bool _isLoadingPrevious = false;
   bool _isLoadingMore = false;
+  String? _filter;  // 当前过滤模式（如 'summary' 表示热门回复）
+
   bool get hasMoreAfter => _hasMoreAfter;
   bool get hasMoreBefore => _hasMoreBefore;
   bool get isLoadingPrevious => _isLoadingPrevious;
   bool get isLoadingMore => _isLoadingMore;
+  bool get isSummaryMode => _filter == 'summary';
 
   @override
   Future<TopicDetail> build() async {
@@ -66,8 +69,112 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     return detail;
   }
 
+  /// 切换到热门回复模式
+  Future<void> showTopReplies() async {
+    if (_filter == 'summary') return;
+    _filter = 'summary';
+    await _reloadWithFilter();
+  }
+
+  /// 取消过滤，显示全部回复
+  Future<void> cancelFilter() async {
+    if (_filter == null) return;
+    _filter = null;
+    await _reloadWithFilter();
+  }
+
+  /// 使用当前 filter 重新加载数据
+  Future<void> _reloadWithFilter() async {
+    state = const AsyncValue.loading();
+    _hasMoreAfter = true;
+    _hasMoreBefore = true;
+
+    state = await AsyncValue.guard(() async {
+      final service = ref.read(discourseServiceProvider);
+      final detail = await service.getTopicDetail(arg.topicId, filter: _filter);
+
+      final posts = detail.postStream.posts;
+      final stream = detail.postStream.stream;
+      if (posts.isEmpty) {
+        _hasMoreAfter = false;
+        _hasMoreBefore = false;
+      } else {
+        final firstPostId = posts.first.id;
+        final firstIndex = stream.indexOf(firstPostId);
+        _hasMoreBefore = firstIndex > 0;
+
+        final lastPostId = posts.last.id;
+        final lastIndex = stream.indexOf(lastPostId);
+        _hasMoreAfter = lastIndex < stream.length - 1;
+      }
+
+      return detail;
+    });
+  }
+
+  /// 过滤模式下根据 stream ID 加载更多帖子
+  Future<void> _loadMoreByStreamIds() async {
+    _isLoadingMore = true;
+
+    try {
+      state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
+
+      state = await AsyncValue.guard(() async {
+        final currentDetail = state.requireValue;
+        final currentPosts = currentDetail.postStream.posts;
+        final stream = currentDetail.postStream.stream;
+
+        if (currentPosts.isEmpty) {
+          _hasMoreAfter = false;
+          return currentDetail;
+        }
+
+        // 找到已加载的最后一个帖子在 stream 中的位置
+        final lastPostId = currentPosts.last.id;
+        final lastIndex = stream.indexOf(lastPostId);
+
+        if (lastIndex == -1 || lastIndex >= stream.length - 1) {
+          _hasMoreAfter = false;
+          return currentDetail;
+        }
+
+        // 获取下一批帖子 ID（最多 20 个）
+        final nextIds = stream.sublist(
+          lastIndex + 1,
+          (lastIndex + 21).clamp(0, stream.length),
+        );
+
+        if (nextIds.isEmpty) {
+          _hasMoreAfter = false;
+          return currentDetail;
+        }
+
+        final service = ref.read(discourseServiceProvider);
+        final newPostStream = await service.getPosts(arg.topicId, nextIds);
+
+        // 合并帖子
+        final existingIds = currentPosts.map((p) => p.id).toSet();
+        final newPosts = newPostStream.posts.where((p) => !existingIds.contains(p.id)).toList();
+        final mergedPosts = [...currentPosts, ...newPosts];
+        mergedPosts.sort((a, b) => stream.indexOf(a.id).compareTo(stream.indexOf(b.id)));
+
+        // 检查是否还有更多
+        final newLastId = mergedPosts.last.id;
+        final newLastIndex = stream.indexOf(newLastId);
+        _hasMoreAfter = newLastIndex < stream.length - 1;
+
+        return currentDetail.copyWith(
+          postStream: PostStream(posts: mergedPosts, stream: stream),
+        );
+      });
+    } finally {
+      _isLoadingMore = false;
+    }
+  }
+
   /// 加载更早的帖子（向上滚动）
   Future<void> loadPrevious() async {
+    if (_filter != null) return;  // 过滤模式下使用不同的分页逻辑
     if (!_hasMoreBefore || state.isLoading || _isLoadingPrevious) return;
     _isLoadingPrevious = true;
 
@@ -111,24 +218,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
 
         _hasMoreBefore = mergedPosts.first.postNumber > 1;
 
-        return TopicDetail(
-          id: currentDetail.id,
-          title: currentDetail.title,
-          slug: currentDetail.slug,
-          postsCount: currentDetail.postsCount,
+        return currentDetail.copyWith(
           postStream: PostStream(posts: mergedPosts, stream: mergedStream),
-          categoryId: currentDetail.categoryId,
-          closed: currentDetail.closed,
-          archived: currentDetail.archived,
-          tags: currentDetail.tags,
-          views: currentDetail.views,
-          likeCount: currentDetail.likeCount,
-          createdAt: currentDetail.createdAt,
-          visible: currentDetail.visible,
-          canVote: currentDetail.canVote,
-          voteCount: currentDetail.voteCount,
-          userVoted: currentDetail.userVoted,
-          lastReadPostNumber: currentDetail.lastReadPostNumber,
         );
       });
     } finally {
@@ -139,6 +230,12 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   /// 加载更多回复（向下滚动）
   Future<void> loadMore() async {
     if (!_hasMoreAfter || state.isLoading || _isLoadingMore) return;
+
+    // 过滤模式下使用 stream ID 加载
+    if (_filter != null) {
+      await _loadMoreByStreamIds();
+      return;
+    }
     _isLoadingMore = true;
 
     try {
@@ -181,24 +278,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
 
         _hasMoreAfter = mergedPosts.last.postNumber < currentDetail.postsCount;
 
-        return TopicDetail(
-          id: currentDetail.id,
-          title: currentDetail.title,
-          slug: currentDetail.slug,
-          postsCount: currentDetail.postsCount,
+        return currentDetail.copyWith(
           postStream: PostStream(posts: mergedPosts, stream: mergedStream),
-          categoryId: currentDetail.categoryId,
-          closed: currentDetail.closed,
-          archived: currentDetail.archived,
-          tags: currentDetail.tags,
-          views: currentDetail.views,
-          likeCount: currentDetail.likeCount,
-          createdAt: currentDetail.createdAt,
-          visible: currentDetail.visible,
-          canVote: currentDetail.canVote,
-          voteCount: currentDetail.voteCount,
-          userVoted: currentDetail.userVoted,
-          lastReadPostNumber: currentDetail.lastReadPostNumber,
         );
       });
     } finally {
@@ -254,24 +335,12 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       
       _hasMoreAfter = mergedPosts.last.postNumber < newDetail.postsCount;
       
-      state = AsyncValue.data(TopicDetail(
-        id: currentDetail.id,
-        title: currentDetail.title,
-        slug: currentDetail.slug,
-        postsCount: newDetail.postsCount, // 更新总数
-        postStream: PostStream(posts: mergedPosts, stream: mergedStream), // 使用合并后的 stream
-        categoryId: currentDetail.categoryId,
-        closed: currentDetail.closed,
-        archived: currentDetail.archived,
-        tags: currentDetail.tags,
-        views: currentDetail.views,
-        likeCount: currentDetail.likeCount,
-        createdAt: currentDetail.createdAt,
-        visible: currentDetail.visible,
+      state = AsyncValue.data(currentDetail.copyWith(
+        postsCount: newDetail.postsCount,
+        postStream: PostStream(posts: mergedPosts, stream: mergedStream),
         canVote: newDetail.canVote,
         voteCount: newDetail.voteCount,
         userVoted: newDetail.userVoted,
-        lastReadPostNumber: currentDetail.lastReadPostNumber,
       ));
     } catch (e) {
       print('[TopicDetail] 加载新回复失败: $e');
@@ -331,21 +400,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       final newPosts = [...currentPosts];
       newPosts[index] = finalPost;
       
-      state = AsyncValue.data(TopicDetail(
-        id: currentDetail.id,
-        title: currentDetail.title,
-        slug: currentDetail.slug,
-        postsCount: currentDetail.postsCount,
+      state = AsyncValue.data(currentDetail.copyWith(
         postStream: PostStream(posts: newPosts, stream: currentDetail.postStream.stream),
-        categoryId: currentDetail.categoryId,
-        closed: currentDetail.closed,
-        archived: currentDetail.archived,
-        tags: currentDetail.tags,
-        views: currentDetail.views,
-        likeCount: currentDetail.likeCount,
-        createdAt: currentDetail.createdAt,
-        visible: currentDetail.visible,
-        lastReadPostNumber: currentDetail.lastReadPostNumber,
       ));
     } catch (e) {
       print('[TopicDetail] 刷新帖子 $postId 失败: $e');
@@ -361,22 +417,10 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     final newPosts = currentPosts.where((p) => p.id != postId).toList();
     
     if (newPosts.length == currentPosts.length) return; // 没有变化
-    
-    state = AsyncValue.data(TopicDetail(
-      id: currentDetail.id,
-      title: currentDetail.title,
-      slug: currentDetail.slug,
+
+    state = AsyncValue.data(currentDetail.copyWith(
       postsCount: currentDetail.postsCount - 1,
       postStream: PostStream(posts: newPosts, stream: currentDetail.postStream.stream),
-      categoryId: currentDetail.categoryId,
-      closed: currentDetail.closed,
-      archived: currentDetail.archived,
-      tags: currentDetail.tags,
-      views: currentDetail.views,
-      likeCount: currentDetail.likeCount,
-      createdAt: currentDetail.createdAt,
-      visible: currentDetail.visible,
-      lastReadPostNumber: currentDetail.lastReadPostNumber,
     ));
   }
 
@@ -440,22 +484,9 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     
     final newPosts = [...currentPosts];
     newPosts[index] = updatedPost;
-    
-    state = AsyncValue.data(TopicDetail(
-      id: currentDetail.id,
-      title: currentDetail.title,
-      slug: currentDetail.slug,
-      postsCount: currentDetail.postsCount,
+
+    state = AsyncValue.data(currentDetail.copyWith(
       postStream: PostStream(posts: newPosts, stream: currentDetail.postStream.stream),
-      categoryId: currentDetail.categoryId,
-      closed: currentDetail.closed,
-      archived: currentDetail.archived,
-      tags: currentDetail.tags,
-      views: currentDetail.views,
-      likeCount: currentDetail.likeCount,
-      createdAt: currentDetail.createdAt,
-      visible: currentDetail.visible,
-      lastReadPostNumber: currentDetail.lastReadPostNumber,
     ));
   }
 
@@ -499,29 +530,15 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       currentUserReaction: currentUserReaction,
     );
 
-    // 创建新的 posts 列表
     final newPosts = [...currentPosts];
     newPosts[index] = updatedPost;
 
     // 更新 state
-    state = AsyncValue.data(TopicDetail(
-      id: currentDetail.id,
-      title: currentDetail.title,
-      slug: currentDetail.slug,
-      postsCount: currentDetail.postsCount,
+    state = AsyncValue.data(currentDetail.copyWith(
       postStream: PostStream(
         posts: newPosts,
         stream: currentDetail.postStream.stream,
       ),
-      categoryId: currentDetail.categoryId,
-      closed: currentDetail.closed,
-      archived: currentDetail.archived,
-      tags: currentDetail.tags,
-      views: currentDetail.views,
-      likeCount: currentDetail.likeCount,
-      createdAt: currentDetail.createdAt,
-      visible: currentDetail.visible,
-      lastReadPostNumber: currentDetail.lastReadPostNumber,
     ));
   }
 
@@ -530,25 +547,9 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     final currentDetail = state.value;
     if (currentDetail == null) return;
 
-    state = AsyncValue.data(TopicDetail(
-      id: currentDetail.id,
-      title: currentDetail.title,
-      slug: currentDetail.slug,
-      postsCount: currentDetail.postsCount,
-      postStream: currentDetail.postStream,
-      categoryId: currentDetail.categoryId,
-      closed: currentDetail.closed,
-      archived: currentDetail.archived,
-      tags: currentDetail.tags,
-      views: currentDetail.views,
-      likeCount: currentDetail.likeCount,
-      createdAt: currentDetail.createdAt,
-      visible: currentDetail.visible,
-      canVote: currentDetail.canVote,
-      // 更新这两个字段
+    state = AsyncValue.data(currentDetail.copyWith(
       voteCount: newVoteCount,
       userVoted: userVoted,
-      lastReadPostNumber: currentDetail.lastReadPostNumber,
     ));
   }
 
@@ -659,21 +660,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       _hasMoreBefore = mergedPosts.first.postNumber > 1;
       _hasMoreAfter = mergedPosts.last.postNumber < currentDetail.postsCount;
 
-      state = AsyncValue.data(TopicDetail(
-        id: currentDetail.id,
-        title: currentDetail.title,
-        slug: currentDetail.slug,
-        postsCount: currentDetail.postsCount,
+      state = AsyncValue.data(currentDetail.copyWith(
         postStream: PostStream(posts: mergedPosts, stream: currentDetail.postStream.stream),
-        categoryId: currentDetail.categoryId,
-        closed: currentDetail.closed,
-        archived: currentDetail.archived,
-        tags: currentDetail.tags,
-        views: currentDetail.views,
-        likeCount: currentDetail.likeCount,
-        createdAt: currentDetail.createdAt,
-        visible: currentDetail.visible,
-        lastReadPostNumber: currentDetail.lastReadPostNumber,
       ));
 
       // 返回目标帖子的索引
@@ -710,46 +698,16 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       // 更新帖子总数
       final newPostsCount = currentDetail.postsCount + 1;
 
-      state = AsyncValue.data(TopicDetail(
-        id: currentDetail.id,
-        title: currentDetail.title,
-        slug: currentDetail.slug,
+      state = AsyncValue.data(currentDetail.copyWith(
         postsCount: newPostsCount,
         postStream: PostStream(posts: newPosts, stream: newStream),
-        categoryId: currentDetail.categoryId,
-        closed: currentDetail.closed,
-        archived: currentDetail.archived,
-        tags: currentDetail.tags,
-        views: currentDetail.views,
-        likeCount: currentDetail.likeCount,
-        createdAt: currentDetail.createdAt,
-        visible: currentDetail.visible,
-        canVote: currentDetail.canVote,
-        voteCount: currentDetail.voteCount,
-        userVoted: currentDetail.userVoted,
-        lastReadPostNumber: currentDetail.lastReadPostNumber,
       ));
       return true;
     } else {
       // 用户不在底部：只更新 stream 和帖子总数，不添加到视图
-      state = AsyncValue.data(TopicDetail(
-        id: currentDetail.id,
-        title: currentDetail.title,
-        slug: currentDetail.slug,
+      state = AsyncValue.data(currentDetail.copyWith(
         postsCount: currentDetail.postsCount + 1,
         postStream: PostStream(posts: currentPosts, stream: newStream),
-        categoryId: currentDetail.categoryId,
-        closed: currentDetail.closed,
-        archived: currentDetail.archived,
-        tags: currentDetail.tags,
-        views: currentDetail.views,
-        likeCount: currentDetail.likeCount,
-        createdAt: currentDetail.createdAt,
-        visible: currentDetail.visible,
-        canVote: currentDetail.canVote,
-        voteCount: currentDetail.voteCount,
-        userVoted: currentDetail.userVoted,
-        lastReadPostNumber: currentDetail.lastReadPostNumber,
       ));
       return false;
     }
@@ -767,24 +725,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     final newPosts = [...currentPosts];
     newPosts[index] = post;
 
-    state = AsyncValue.data(TopicDetail(
-      id: currentDetail.id,
-      title: currentDetail.title,
-      slug: currentDetail.slug,
-      postsCount: currentDetail.postsCount,
+    state = AsyncValue.data(currentDetail.copyWith(
       postStream: PostStream(posts: newPosts, stream: currentDetail.postStream.stream),
-      categoryId: currentDetail.categoryId,
-      closed: currentDetail.closed,
-      archived: currentDetail.archived,
-      tags: currentDetail.tags,
-      views: currentDetail.views,
-      likeCount: currentDetail.likeCount,
-      createdAt: currentDetail.createdAt,
-      visible: currentDetail.visible,
-      canVote: currentDetail.canVote,
-      voteCount: currentDetail.voteCount,
-      userVoted: currentDetail.userVoted,
-      lastReadPostNumber: currentDetail.lastReadPostNumber,
     ));
   }
 }

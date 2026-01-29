@@ -193,8 +193,8 @@ class TopicDetailHeader extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          icon, 
-          size: 14, 
+          icon,
+          size: 14,
           color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
         ),
         const SizedBox(width: 4),

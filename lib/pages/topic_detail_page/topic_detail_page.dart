@@ -63,6 +63,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
 
   bool _isOverlayVisible = false;
   bool _isScrolledUnder = false;
+  bool _isSwitchingMode = false;  // 切换热门回复模式
   late final AnimationController _expandController;
   late final Animation<Offset> _animation;
   Timer? _throttleTimer;
@@ -615,6 +616,44 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
   }
 
 
+  Future<void> _handleShowTopReplies() async {
+    final params = TopicDetailParams(widget.topicId, postNumber: _scrollController.currentPostNumber, instanceId: _instanceId);
+    final notifier = ref.read(topicDetailProvider(params).notifier);
+
+    // 显示骨架屏
+    setState(() => _isSwitchingMode = true);
+
+    // 重置状态，和跳转到未加载数据时一样
+    _scrollController.prepareJumpToPost(1);
+    _highlightController.skipNextJumpHighlight = true;
+    _visibilityTracker.reset();
+
+    await notifier.showTopReplies();
+
+    if (mounted) {
+      setState(() => _isSwitchingMode = false);
+    }
+  }
+
+  Future<void> _handleCancelFilter() async {
+    final params = TopicDetailParams(widget.topicId, postNumber: _scrollController.currentPostNumber, instanceId: _instanceId);
+    final notifier = ref.read(topicDetailProvider(params).notifier);
+
+    // 显示骨架屏
+    setState(() => _isSwitchingMode = true);
+
+    // 重置状态，和跳转到未加载数据时一样
+    _scrollController.prepareJumpToPost(1);
+    _highlightController.skipNextJumpHighlight = true;
+    _visibilityTracker.reset();
+
+    await notifier.cancelFilter();
+
+    if (mounted) {
+      setState(() => _isSwitchingMode = false);
+    }
+  }
+
   void _toggleExpandedHeader() {
     if (_expandController.status == AnimationStatus.completed || 
         _expandController.status == AnimationStatus.forward) {
@@ -851,8 +890,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
   ) {
     final params = TopicDetailParams(widget.topicId, postNumber: _scrollController.currentPostNumber, instanceId: _instanceId);
 
-    // 初始加载 loading
-    if (detailAsync.isLoading && detail == null) {
+    // 初始加载或切换模式时显示骨架屏
+    if ((detailAsync.isLoading && detail == null) || _isSwitchingMode) {
       final showHeaderSkeleton = widget.scrollToPostNumber == null || widget.scrollToPostNumber == 0;
       return PostListSkeleton(withHeader: showHeaderSkeleton);
     }
@@ -907,6 +946,10 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
               onOpenInBrowser: _openInBrowser,
               onReply: () => _handleReply(null),
               onProgressTap: () => _showTimelineSheet(detail),
+              isSummaryMode: notifier.isSummaryMode,
+              isLoading: _isSwitchingMode,
+              onShowTopReplies: _handleShowTopReplies,
+              onCancelFilter: _handleCancelFilter,
             ),
 
           // Expanded Header Barrier
@@ -976,15 +1019,17 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       _updateReadPostNumbers(readPostNumbers);
     }
 
-    // 计算分割线位置
+    // 计算分割线位置（热门回复模式下不显示）
     int? dividerPostIndex;
-    final lastRead = detail.lastReadPostNumber;
-    final totalPosts = detail.postsCount;
-    if (lastRead != null && lastRead > 3 && (totalPosts - lastRead) > 1) {
-      for (int i = 0; i < posts.length; i++) {
-        if (posts[i].postNumber > lastRead) {
-          dividerPostIndex = i;
-          break;
+    if (!notifier.isSummaryMode) {
+      final lastRead = detail.lastReadPostNumber;
+      final totalPosts = detail.postsCount;
+      if (lastRead != null && lastRead > 3 && (totalPosts - lastRead) > 1) {
+        for (int i = 0; i < posts.length; i++) {
+          if (posts[i].postNumber > lastRead) {
+            dividerPostIndex = i;
+            break;
+          }
         }
       }
     }

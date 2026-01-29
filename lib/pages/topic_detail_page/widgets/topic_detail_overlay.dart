@@ -16,6 +16,10 @@ class TopicDetailOverlay extends StatelessWidget {
   final VoidCallback onOpenInBrowser;
   final VoidCallback onReply;
   final VoidCallback onProgressTap;
+  final bool isSummaryMode;
+  final bool isLoading;
+  final VoidCallback? onShowTopReplies;
+  final VoidCallback? onCancelFilter;
 
   const TopicDetailOverlay({
     super.key,
@@ -29,6 +33,10 @@ class TopicDetailOverlay extends StatelessWidget {
     required this.onOpenInBrowser,
     required this.onReply,
     required this.onProgressTap,
+    this.isSummaryMode = false,
+    this.isLoading = false,
+    this.onShowTopReplies,
+    this.onCancelFilter,
   });
 
   @override
@@ -67,6 +75,11 @@ class TopicDetailOverlay extends StatelessWidget {
             onScrollToTop: onScrollToTop,
             onShare: onShare,
             onOpenInBrowser: onOpenInBrowser,
+            hasSummary: detail.hasSummary,
+            isSummaryMode: isSummaryMode,
+            isLoading: isLoading,
+            onShowTopReplies: onShowTopReplies,
+            onCancelFilter: onCancelFilter,
           ),
         ),
         // 悬浮回复按钮

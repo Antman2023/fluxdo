@@ -496,9 +496,15 @@ class TopicDetail {
   final int voteCount;       // 投票数
   final bool userVoted;      // 当前用户是否已投票
 
+  // 创建者信息
+  final TopicUser? createdBy;
+
   // AI 摘要相关字段
   final bool summarizable;        // 话题是否可摘要（后端控制）
   final bool hasCachedSummary;    // 是否有缓存的摘要
+
+  // 热门回复相关字段
+  final bool hasSummary;          // 是否有足够的帖子/点赞来支持热门回复功能
 
   // 订阅级别
   final TopicNotificationLevel notificationLevel;
@@ -521,8 +527,10 @@ class TopicDetail {
     this.canVote = false,
     this.voteCount = 0,
     this.userVoted = false,
+    this.createdBy,
     this.summarizable = false,
     this.hasCachedSummary = false,
+    this.hasSummary = false,
     this.notificationLevel = TopicNotificationLevel.regular,
   });
 
@@ -545,8 +553,12 @@ class TopicDetail {
       canVote: json['can_vote'] as bool? ?? false,
       voteCount: json['vote_count'] as int? ?? 0,
       userVoted: json['user_voted'] as bool? ?? false,
+      createdBy: (json['details'] as Map<String, dynamic>?)?['created_by'] != null
+          ? TopicUser.fromJson((json['details']!['created_by'] as Map<String, dynamic>))
+          : null,
       summarizable: json['summarizable'] as bool? ?? false,
       hasCachedSummary: json['has_cached_summary'] as bool? ?? false,
+      hasSummary: json['has_summary'] as bool? ?? false,
       notificationLevel: TopicNotificationLevel.fromValue(
         (json['details'] as Map<String, dynamic>?)?['notification_level'] as int?,
       ),
@@ -572,8 +584,10 @@ class TopicDetail {
     bool? canVote,
     int? voteCount,
     bool? userVoted,
+    TopicUser? createdBy,
     bool? summarizable,
     bool? hasCachedSummary,
+    bool? hasSummary,
     TopicNotificationLevel? notificationLevel,
   }) {
     return TopicDetail(
@@ -594,8 +608,10 @@ class TopicDetail {
       canVote: canVote ?? this.canVote,
       voteCount: voteCount ?? this.voteCount,
       userVoted: userVoted ?? this.userVoted,
+      createdBy: createdBy ?? this.createdBy,
       summarizable: summarizable ?? this.summarizable,
       hasCachedSummary: hasCachedSummary ?? this.hasCachedSummary,
+      hasSummary: hasSummary ?? this.hasSummary,
       notificationLevel: notificationLevel ?? this.notificationLevel,
     );
   }
