@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../constants.dart';
-import '../widgets/common/loading_spinner.dart';
 import 'network/cookie/cookie_jar_service.dart';
-import 'network/cookie/cookie_sync_service.dart';
 import 'local_notification_service.dart'; // 用于获取全局 navigatorKey
+import 'cf_challenge_logger.dart';
+import '../widgets/draggable_floating_pill.dart';
 
 /// CF 验证服务
 /// 处理 Cloudflare Turnstile 验证（仅手动模式）
@@ -33,10 +33,16 @@ class CfChallengeService {
   }
   
   /// 重置冷却期（验证成功后调用）
-  void resetCooldown() => _cooldownUntil = null;
-  
+  void resetCooldown() {
+    _cooldownUntil = null;
+    CfChallengeLogger.logCooldown(entering: false);
+  }
+
   /// 手动启动冷却期
-  void startCooldown() => _cooldownUntil = DateTime.now().add(_cooldownDuration);
+  void startCooldown() {
+    _cooldownUntil = DateTime.now().add(_cooldownDuration);
+    CfChallengeLogger.logCooldown(entering: true, until: _cooldownUntil);
+  }
 
   void setContext(BuildContext context) {
     _context = context;
@@ -57,8 +63,13 @@ class CfChallengeService {
     // 检查冷却期
     if (isInCooldown) {
       debugPrint('[CfChallenge] In cooldown, skipping manual verify');
+      CfChallengeLogger.log('[VERIFY] Skipped: in cooldown');
       return null;
     }
+
+    final verifyUrl = '${AppConstants.baseUrl}/challenge';
+    CfChallengeLogger.logVerifyStart(verifyUrl);
+    unawaited(CfChallengeLogger.logAccessIps(url: verifyUrl, context: 'verify_start'));
     
     // 尝试获取 context：传入的 > 已设置的 > 全局 navigatorKey
     BuildContext? ctx = context ?? _context;
@@ -86,41 +97,79 @@ class CfChallengeService {
 
     _isVerifying = true;
 
+    final overlayState = Overlay.maybeOf(ctx, rootOverlay: true);
+    if (overlayState == null) {
+      debugPrint('[CfChallenge] No overlay available for manual verify');
+      CfChallengeLogger.log('[VERIFY] No overlay available');
+      _isVerifying = false;
+      return null;
+    }
+
     // 打开 WebView 前先同步 Cookie 到 WebView
     await CookieJarService().syncToWebView();
+    if (!overlayState.mounted) {
+      debugPrint('[CfChallenge] Overlay no longer mounted');
+      CfChallengeLogger.log('[VERIFY] Overlay not mounted');
+      _isVerifying = false;
+      return null;
+    }
 
-    final result = await Navigator.of(ctx).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const CfChallengePage(),
-        fullscreenDialog: true,
+    final resultCompleter = Completer<bool>();
+    late final OverlayEntry entry;
+    void finish(bool success) {
+      if (!resultCompleter.isCompleted) {
+        resultCompleter.complete(success);
+      }
+      if (entry.mounted) {
+        entry.remove();
+      }
+    }
+
+    entry = OverlayEntry(
+      builder: (_) => CfChallengePage(
+        startInBackground: true,
+        onResult: finish,
       ),
     );
+    overlayState.insert(entry);
+
+    final result = await resultCompleter.future;
 
     _isVerifying = false;
 
     // 通知所有等待者
     for (final c in _verifyCompleter) {
-      if (!c.isCompleted) c.complete(result ?? false);
+      if (!c.isCompleted) c.complete(result);
     }
     _verifyCompleter.clear();
 
-    // 验证成功后从 WebView 同步 Cookie 回 CookieJar
+    // 验证成功后重置冷却期
+    // 注意：syncFromWebView 由拦截器调用，避免重复
     if (result == true) {
-      resetCooldown(); // 重置冷却期
-      await CookieJarService().syncFromWebView();
+      resetCooldown();
+      CfChallengeLogger.logVerifyResult(success: true, reason: 'user completed');
     } else {
       // 验证失败，启动冷却期
-      _cooldownUntil = DateTime.now().add(_cooldownDuration);
+      startCooldown();
       debugPrint('[CfChallenge] Verification failed, cooldown until $_cooldownUntil');
+      CfChallengeLogger.logVerifyResult(success: false, reason: 'user cancelled or timeout');
     }
 
-    return result ?? false;
+    return result;
   }
 }
 
 /// CF 验证页面
 class CfChallengePage extends StatefulWidget {
-  const CfChallengePage({super.key});
+  const CfChallengePage({
+    super.key,
+    this.startInBackground = false,
+    this.onResult,
+  });
+
+  /// 先后台尝试验证，超时后再切到前台
+  final bool startInBackground;
+  final ValueChanged<bool>? onResult;
 
   @override
   State<CfChallengePage> createState() => _CfChallengePageState();
@@ -134,13 +183,13 @@ class _CfChallengePageState extends State<CfChallengePage> {
   String? _initialCfClearance;
   bool _navigatedAfterClearance = false;
   bool _hasPopped = false; // 防止重复 pop
+  late bool _isBackground;
   int _checkCount = 0;
-  static const _maxCheckCount = 60;
+  static const _backgroundMaxCheckCount = 10;
+  static const _foregroundMaxCheckCount = 60;
 
-  bool _isChallengeUrl(WebUri? url) {
-    final value = url?.toString() ?? '';
-    return value.contains('/challenge') || value.contains('__cf_chl');
-  }
+  int get _activeMaxCheckCount =>
+      _isBackground ? _backgroundMaxCheckCount : _foregroundMaxCheckCount;
 
   @override
   void dispose() {
@@ -151,117 +200,172 @@ class _CfChallengePageState extends State<CfChallengePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final showUi = !_isBackground;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('安全验证'),
-            if (_checkCount > 0)
-              Text(
-                '验证中... ${_checkCount}s',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-          ],
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(false),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refresh,
-            tooltip: '刷新',
-          ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: _showHelp,
-            tooltip: '帮助',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (_isLoading)
-            LinearProgressIndicator(
-              value: _progress > 0 ? _progress : null,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            ),
-          Expanded(
-            child: Stack(
-              children: [
-                InAppWebView(
-                  initialUrlRequest: URLRequest(url: WebUri('${AppConstants.baseUrl}/challenge')),
-                  initialSettings: InAppWebViewSettings(
-                    javaScriptEnabled: true,
-                    userAgent: AppConstants.userAgent,
-                    // useShouldOverrideUrlLoading: true, // 不要设置这个，除非实现了 shouldOverrideUrlLoading 回调，否则会阻塞页面加载
-                    mediaPlaybackRequiresUserGesture: false,
-                  ),
-                  onWebViewCreated: (controller) => _controller = controller,
-                  onLoadStart: (_, __) => setState(() {
-                    _isLoading = true;
-                    _progress = 0;
-                  }),
-                  onProgressChanged: (controller, progress) {
-                    setState(() => _progress = progress / 100);
-                  },
-                  onLoadStop: (controller, url) {
-                    setState(() => _isLoading = false);
-                    _startVerifyCheck(controller);
-                    if (!_isChallengeUrl(url) && !_hasPopped) {
-                      _hasPopped = true;
-                      Navigator.of(context).pop(true);
-                    }
-                  },
-                  onLoadError: (controller, url, code, message) {
-                    setState(() => _isLoading = false);
-                    _showError('加载失败: $message');
-                  },
-                ),
-                if (_checkCount > _maxCheckCount - 10 && _checkCount <= _maxCheckCount)
-                  Positioned(
-                    bottom: 16,
-                    left: 16,
-                    right: 16,
-                    child: Card(
-                      color: theme.colorScheme.errorContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              color: theme.colorScheme.onErrorContainer,
+    return Stack(
+      children: [
+        // 内容层：显示 WebView UI
+        // 当后台可交互时(_isBackground==false)，正常显示 Scaffold
+        // 当后台不可交互时(_isBackground==true)，Scaffold 应该是完全透明且不响应点击
+        IgnorePointer(
+          ignoring: _isBackground,
+          child: Opacity(
+            opacity: _isBackground ? 0 : 1,
+            child: Scaffold(
+              backgroundColor: Colors.transparent, // 始终透明，依靠内容决定是否遮挡
+              appBar: showUi
+                  ? AppBar(
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('安全验证'),
+                          if (_checkCount > 0)
+                            Text(
+                              '验证中... ${_checkCount}s',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '验证时间较长，还剩 ${_maxCheckCount - _checkCount} 秒',
-                                style: TextStyle(
-                                  color: theme.colorScheme.onErrorContainer,
+                        ],
+                      ),
+                      leading: IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => _finish(false),
+                      ),
+                      actions: [
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          onPressed: _refresh,
+                          tooltip: '刷新',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.help_outline),
+                          onPressed: _showHelp,
+                          tooltip: '帮助',
+                        ),
+                      ],
+                    )
+                  : null,
+              body: Column(
+                children: [
+                  if (showUi && _isLoading)
+                    LinearProgressIndicator(
+                      value: _progress > 0 ? _progress : null,
+                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // WebView
+                        // 仅在后台时忽略 WebView 的点击
+                        IgnorePointer(
+                          ignoring: _isBackground,
+                          child: InAppWebView(
+                            initialUrlRequest: URLRequest(
+                                url: WebUri('${AppConstants.baseUrl}/challenge')),
+                            initialSettings: InAppWebViewSettings(
+                              javaScriptEnabled: true,
+                              userAgent: AppConstants.userAgent,
+                              mediaPlaybackRequiresUserGesture: false,
+                            ),
+                            onWebViewCreated: (controller) =>
+                                _controller = controller,
+                            onLoadStart: (controller, url) {
+                              setState(() {
+                                _isLoading = true;
+                                _progress = 0;
+                              });
+                              _startVerifyCheck(controller, restart: false);
+                            },
+                            onProgressChanged: (controller, progress) {
+                              _progress = progress / 100;
+                              if (showUi) {
+                                setState(() {});
+                              }
+                            },
+                            onLoadStop: (controller, url) {
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+                              }
+                              _startVerifyCheck(controller);
+                            },
+                            onReceivedError: (controller, request, error) {
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+                              }
+                              if (showUi) {
+                                _showError('加载失败: ${error.description}');
+                              }
+                            },
+                          ),
+                        ),
+                        
+                        // 警告卡片 (位于 Inner Stack，仅在前台显示)
+                        if (showUi &&
+                            _checkCount > _activeMaxCheckCount - 10 &&
+                            _checkCount <= _activeMaxCheckCount)
+                          Positioned(
+                            bottom: 16,
+                            left: 16,
+                            right: 16,
+                            child: Card(
+                              color: theme.colorScheme.errorContainer,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: theme.colorScheme.onErrorContainer,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '验证时间较长，还剩 ${_activeMaxCheckCount - _checkCount} 秒',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onErrorContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+
+        // 悬浮验证胶囊 (位于 Outer Stack，仅在后台显示)
+        if (_isBackground)
+          DraggableFloatingPill(
+            initialTop: 100,
+            onTap: _promoteToForeground,
+            child: const Text('后台验证中... (点击打开)'),
+          ),
+      ],
     );
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _isBackground = widget.startInBackground;
+  }
+
   /// 启动定时检查验证状态（非阻塞）
-  void _startVerifyCheck(InAppWebViewController controller) {
+  void _startVerifyCheck(
+    InAppWebViewController controller, {
+    bool restart = true,
+  }) {
+    if (!restart && (_checkTimer?.isActive ?? false)) {
+      return;
+    }
     _checkTimer?.cancel();
     _checkCount = 0;
 
@@ -280,16 +384,25 @@ class _CfChallengePageState extends State<CfChallengePage> {
       }
 
       _checkCount++;
-      setState(() {}); // 更新计数显示
+      if (!_isBackground) {
+        setState(() {}); // 更新计数显示
+      }
 
-      if (_checkCount > _maxCheckCount) {
+      if (_checkCount > _activeMaxCheckCount) {
+        if (_isBackground) {
+          CfChallengeLogger.log(
+              '[VERIFY] Background timeout after $_activeMaxCheckCount seconds, prompting manual verify');
+          // 超时后调用 promoteToForeground 切到前台
+          _promoteToForeground();
+          return;
+        }
         timer.cancel();
-        if (mounted && !_hasPopped) {
-          _hasPopped = true;
+        CfChallengeLogger.logVerifyResult(success: false, reason: 'timeout after $_activeMaxCheckCount seconds');
+        if (mounted) {
           _showError('验证超时，请重试');
           await Future.delayed(const Duration(seconds: 2));
           if (mounted) {
-            Navigator.of(context).pop(false);
+            _finish(false);
           }
         }
         return;
@@ -299,20 +412,28 @@ class _CfChallengePageState extends State<CfChallengePage> {
         _initialCfClearance ??= await getCfClearance();
         final html = await controller.evaluateJavascript(source: 'document.body.innerHTML');
         final isChallenge = CfChallengeService.isCfChallenge(html);
-        debugPrint('[CfChallenge] tick#$_checkCount isChallenge=$isChallenge');
-
-        if (html != null && !isChallenge) {
-          timer.cancel();
-          if (mounted && !_hasPopped) {
-            _hasPopped = true;
-            Navigator.of(context).pop(true);
-          }
-        }
-
         final currentCfClearance = await getCfClearance();
         final clearanceChanged = currentCfClearance != null &&
             currentCfClearance.isNotEmpty &&
             (_initialCfClearance == null || currentCfClearance != _initialCfClearance);
+
+        debugPrint('[CfChallenge] tick#$_checkCount isChallenge=$isChallenge hasClearance=${currentCfClearance != null}');
+        CfChallengeLogger.logVerifyCheck(
+          checkCount: _checkCount,
+          isChallenge: isChallenge,
+          cfClearance: currentCfClearance,
+          clearanceChanged: clearanceChanged,
+        );
+
+        // 验证成功条件：HTML 不包含验证标记 且 cf_clearance Cookie 存在
+        if (html != null && !isChallenge && currentCfClearance != null && currentCfClearance.isNotEmpty) {
+          timer.cancel();
+          CfChallengeLogger.logVerifyResult(success: true, reason: 'page loaded and cf_clearance present');
+          if (mounted) {
+            _finish(true);
+          }
+          return;
+        }
 
         if (clearanceChanged) {
           debugPrint('[CfChallenge] clearance updated');
@@ -324,14 +445,16 @@ class _CfChallengePageState extends State<CfChallengePage> {
             );
             return;
           }
+          // cf_clearance 已更新且已导航，确认验证成功
           timer.cancel();
-          if (mounted && !_hasPopped) {
-            _hasPopped = true;
-            Navigator.of(context).pop(true);
+          CfChallengeLogger.logVerifyResult(success: true, reason: 'clearance changed after navigation');
+          if (mounted) {
+            _finish(true);
           }
         }
       } catch (e) {
         debugPrint('[CfChallenge] Check error: $e');
+        CfChallengeLogger.log('[VERIFY] Check error: $e');
       }
     });
   }
@@ -346,6 +469,39 @@ class _CfChallengePageState extends State<CfChallengePage> {
       _progress = 0;
     });
     _controller?.reload();
+  }
+
+  void _promoteToForeground() {
+    if (!_isBackground) return;
+    setState(() {
+      _isBackground = false;
+      _checkCount = 0;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showInfo('自动验证超时，请手动完成验证');
+    });
+  }
+
+  void _finish(bool success) {
+    if (_hasPopped) return;
+    _hasPopped = true;
+    final handler = widget.onResult;
+    if (handler != null) {
+      handler(success);
+    } else {
+      Navigator.of(context).pop(success);
+    }
+  }
+
+  void _showInfo(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   void _showHelp() {

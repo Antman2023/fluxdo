@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/update_service.dart';
 import '../widgets/update_dialog.dart';
@@ -14,11 +15,45 @@ class AboutPage extends StatefulWidget {
 class _AboutPageState extends State<AboutPage> {
   final UpdateService _updateService = UpdateService();
   String _version = '0.1.0';
+  int _versionTapCount = 0;
+  DateTime? _lastVersionTapTime;
 
   @override
   void initState() {
     super.initState();
     _loadVersion();
+  }
+
+  void _onVersionTap() {
+    final now = DateTime.now();
+    if (_lastVersionTapTime != null &&
+        now.difference(_lastVersionTapTime!) > const Duration(seconds: 2)) {
+      _versionTapCount = 0; // 超时重置
+    }
+    _lastVersionTapTime = now;
+    _versionTapCount++;
+
+    if (_versionTapCount == 7) {
+      _versionTapCount = 0;
+      _enableDeveloperMode();
+    }
+  }
+
+  Future<void> _enableDeveloperMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyEnabled = prefs.getBool('developer_mode') ?? false;
+    if (alreadyEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('开发者模式已启用')),
+      );
+      return;
+    }
+    await prefs.setBool('developer_mode', true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已启用开发者模式')),
+    );
   }
 
   Future<void> _loadVersion() async {
@@ -142,10 +177,13 @@ class _AboutPageState extends State<AboutPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Version $_version',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                GestureDetector(
+                  onTap: _onVersionTap,
+                  child: Text(
+                    'Version $_version',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../cf_challenge_service.dart';
+import '../../cf_challenge_logger.dart';
 import '../cookie/cookie_jar_service.dart';
 import '../exceptions/api_exception.dart';
 
@@ -30,13 +33,17 @@ class CfChallengeInterceptor extends Interceptor {
     if (statusCode == 403 &&
         CfChallengeService.isCfChallenge(data) &&
         !skipCfChallenge) {
+      final requestUrl = err.requestOptions.uri.toString();
       debugPrint('[Dio] CF Challenge detected, showing manual verify...');
+      CfChallengeLogger.logInterceptorDetected(url: requestUrl, statusCode: statusCode!);
+      unawaited(CfChallengeLogger.logAccessIps(url: requestUrl, context: 'interceptor'));
 
       final cfService = CfChallengeService();
 
       // 检查是否在冷却期
       if (cfService.isInCooldown) {
         debugPrint('[Dio] CF Challenge in cooldown, throwing exception');
+        CfChallengeLogger.log('[INTERCEPTOR] Skipped: in cooldown');
         throw CfChallengeException(inCooldown: true);
       }
 
@@ -45,6 +52,16 @@ class CfChallengeInterceptor extends Interceptor {
       if (result == true) {
         // CF 验证成功后从 WebView 同步 Cookie 回 CookieJar
         await cookieJarService.syncFromWebView();
+
+        // 验证 cf_clearance 是否真的保存成功
+        final cfClearance = await cookieJarService.getCfClearance();
+        if (cfClearance == null || cfClearance.isEmpty) {
+          debugPrint('[Dio] cf_clearance not found after sync, entering cooldown');
+          CfChallengeLogger.log('[INTERCEPTOR] cf_clearance not found after sync');
+          cfService.startCooldown();
+          throw CfChallengeException();
+        }
+        CfChallengeLogger.log('[INTERCEPTOR] cf_clearance verified: ${cfClearance.length} chars');
 
         // 等待足够时间让 Cookie 完全生效，避免 SSL 握手失败
         await Future.delayed(const Duration(milliseconds: 1500));
@@ -57,9 +74,19 @@ class CfChallengeInterceptor extends Interceptor {
           retryOptions.headers.remove('cookie');
           retryOptions.headers.remove('Cookie');
           final response = await dio.fetch(retryOptions);
+          CfChallengeLogger.logInterceptorRetry(
+            url: requestUrl,
+            success: true,
+            statusCode: response.statusCode,
+          );
           return handler.resolve(response);
         } catch (e) {
           debugPrint('[Dio] Retry after CF verify failed: $e');
+          CfChallengeLogger.logInterceptorRetry(
+            url: requestUrl,
+            success: false,
+            error: e.toString(),
+          );
           // 重试仍然失败，说明验证可能没有真正成功，进入冷却期
           cfService.startCooldown();
           throw CfChallengeException();
@@ -72,9 +99,11 @@ class CfChallengeInterceptor extends Interceptor {
         // 无 context（应用刚启动，context 还没设置好）
         debugPrint(
             '[Dio] CF Challenge: no context available, cannot show verify page');
+        CfChallengeLogger.log('[INTERCEPTOR] No context available');
         throw CfChallengeException(); // 通用错误，提示重试
       } else {
         // result == false：用户取消或验证失败
+        CfChallengeLogger.log('[INTERCEPTOR] User cancelled or verify failed');
         throw CfChallengeException(userCancelled: true);
       }
     }

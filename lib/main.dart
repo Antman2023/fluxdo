@@ -18,6 +18,7 @@ import 'services/preloaded_data_service.dart';
 import 'services/network/doh/network_settings_service.dart';
 import 'services/network/doh_proxy/proxy_certificate.dart';
 import 'services/network_logger.dart';
+import 'services/cf_challenge_logger.dart';
 import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
 import 'models/user.dart';
@@ -41,6 +42,9 @@ Future<void> main() async {
 
   // 初始化调试日志（写入到文档目录）
   await NetworkLogger.init();
+
+  // 初始化 CF 验证日志
+  await CfChallengeLogger.init();
 
   // 初始化代理 CA 证书（非 Android 平台）
   await ProxyCertificate.initialize();

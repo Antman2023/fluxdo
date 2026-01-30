@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../services/network_logger.dart';
+import '../services/cf_challenge_logger.dart';
 import '../services/network/doh/doh_resolver.dart';
 import '../services/network/doh/network_settings_service.dart';
 import 'network_adapter_settings_page.dart';
@@ -21,6 +23,22 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   final Map<String, int?> _latencies = {};
   final Set<String> _testingServers = {};
   bool _testingAll = false;
+  bool _isDeveloperMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDeveloperMode();
+  }
+
+  Future<void> _loadDeveloperMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isDeveloperMode = prefs.getBool('developer_mode') ?? false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -484,6 +502,31 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
             trailing: Icon(Icons.chevron_right, size: 20, color: theme.colorScheme.error),
             onTap: _clearLogs,
           ),
+          // CF 验证日志（开发者模式）
+          if (_isDeveloperMode) ...[
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            ListTile(
+              leading: const Icon(Icons.bug_report_outlined),
+              title: const Text('CF 验证日志'),
+              subtitle: const Text('查看 Cloudflare 验证详情'),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: _showCfChallengeLogSheet,
+            ),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('导出 CF 日志'),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: _shareCfChallengeLogs,
+            ),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+              title: Text('清除 CF 日志', style: TextStyle(color: theme.colorScheme.error)),
+              trailing: Icon(Icons.chevron_right, size: 20, color: theme.colorScheme.error),
+              onTap: _clearCfChallengeLogs,
+            ),
+          ],
         ],
       ),
     );
@@ -823,6 +866,182 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('日志已清除')),
+        );
+      }
+    }
+  }
+
+  // ==================== CF 验证日志功能 ====================
+
+  Future<void> _showCfChallengeLogSheet() async {
+    final logs = await CfChallengeLogger.readLogs();
+    if (!mounted) return;
+
+    final theme = Theme.of(context);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.3,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // 拖动条
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // 标题栏
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Text(
+                        'CF 验证日志',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.copy),
+                        tooltip: '复制',
+                        onPressed: logs == null || logs.isEmpty
+                            ? null
+                            : () {
+                                Clipboard.setData(ClipboardData(text: logs));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('已复制到剪贴板')),
+                                );
+                              },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.share),
+                        tooltip: '分享',
+                        onPressed: logs == null || logs.isEmpty
+                            ? null
+                            : () {
+                                Navigator.pop(context);
+                                _shareCfChallengeLogs();
+                              },
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+                // 日志内容
+                Expanded(
+                  child: logs == null || logs.isEmpty
+                      ? _buildEmptyCfLog(theme)
+                      : SingleChildScrollView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          child: SelectableText(
+                            logs,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              height: 1.5,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyCfLog(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.bug_report_outlined,
+            size: 64,
+            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '暂无 CF 验证日志',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '触发 CF 验证后会产生日志',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _shareCfChallengeLogs() async {
+    final logs = await CfChallengeLogger.readLogs();
+    if (logs == null || logs.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无 CF 日志可分享')),
+      );
+      return;
+    }
+
+    final path = await CfChallengeLogger.getLogPath();
+    if (path != null) {
+      await Share.shareXFiles([XFile(path)], subject: 'CF 验证日志');
+    } else {
+      await Share.share(logs, subject: 'CF 验证日志');
+    }
+  }
+
+  Future<void> _clearCfChallengeLogs() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清除 CF 日志'),
+        content: const Text('确定要清除所有 CF 验证日志吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await CfChallengeLogger.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CF 日志已清除')),
         );
       }
     }
