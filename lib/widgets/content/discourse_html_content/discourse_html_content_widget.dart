@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../constants.dart';
 import '../../../models/topic.dart';
 import '../../../pages/user_profile_page.dart';
 import '../../../pages/webview_page.dart';
@@ -95,11 +96,16 @@ class _DiscourseHtmlContentState extends State<DiscourseHtmlContent> {
       if (excludeClassRegExp.hasMatch(imgTag)) continue;
 
       final srcMatch = srcRegExp.firstMatch(imgTag);
-      final src = srcMatch?.group(1);
+      var src = srcMatch?.group(1);
       if (src == null) continue;
 
       // 排除 favicon 路径
       if (src.contains('/favicon') || src.contains('favicon.')) continue;
+
+      // 将相对路径转换为绝对路径
+      if (src.startsWith('/') && !src.startsWith('//')) {
+        src = '${AppConstants.baseUrl}$src';
+      }
 
       galleryImages.add(src);
     }
@@ -109,6 +115,20 @@ class _DiscourseHtmlContentState extends State<DiscourseHtmlContent> {
   /// 预处理 HTML：注入用户状态 emoji、链接点击次数，修复 mention 圆角问题
   String _preprocessHtml(String html) {
     var processedHtml = html;
+
+    // 0. 将相对路径转换为绝对路径（修复新发帖子图片不显示的问题）
+    // Discourse 创建帖子返回的 cooked 中图片使用相对路径 src="/uploads/..."
+    // 而已 rebake 的帖子使用完整 URL src="https://linux.do/uploads/..."
+    processedHtml = processedHtml.replaceAllMapped(
+      RegExp(r'(src|href)="(/[^"]+)"', caseSensitive: false),
+      (match) {
+        final attr = match.group(1)!;
+        final path = match.group(2)!;
+        // 只处理以 / 开头的相对路径，排除协议相对路径 //
+        if (path.startsWith('//')) return match.group(0)!;
+        return '$attr="${AppConstants.baseUrl}$path"';
+      },
+    );
 
     // 1. 注入用户状态 emoji 到 mention 链接
     if (widget.mentionedUsers != null && widget.mentionedUsers!.isNotEmpty) {
