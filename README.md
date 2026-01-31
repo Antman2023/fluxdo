@@ -120,7 +120,7 @@ fluxdo/
 FluxDO 集成了基于 Rust 的 DOH (DNS over HTTPS) 代理，提供：
 
 - **DNS 加密查询**：防止 DNS 污染和劫持
-- **多服务器支持**：DNSPod、腾讯 DNS、阿里 DNS、Cloudflare、Google、Quad9
+- **多服务器支持**：DNSPod、腾讯 DNS、阿里 DNS、Cloudflare、Canadian Shield、Google、Quad9
 - **ECH 支持**：加密 TLS 握手中的 SNI 字段（用户无感知）
 - **跨平台实现**：
   - Android/iOS：FFI 调用

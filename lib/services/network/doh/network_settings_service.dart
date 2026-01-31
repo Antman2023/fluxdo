@@ -445,6 +445,10 @@ const List<DohServer> _defaultServers = [
     bootstrapIps: ['1.1.1.1', '1.0.0.1', '2606:4700:4700::1111', '2606:4700:4700::1001'],
   ),
   DohServer(
+    name: 'Canadian Shield',
+    url: 'https://private.canadianshield.cira.ca/dns-query',
+  ),
+  DohServer(
     name: '阿里 DNS',
     url: 'https://dns.alidns.com/dns-query',
     bootstrapIps: ['223.5.5.5', '223.6.6.6', '2400:3200::1', '2400:3200:baba::1'],
