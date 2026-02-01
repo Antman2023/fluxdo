@@ -62,7 +62,7 @@ class LdcBalanceCard extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    userInfo.totalReceive,
+                    userInfo.availableBalance,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onSurface,
@@ -171,7 +171,7 @@ class LdcBalanceCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    userInfo.totalReceive,
+                    userInfo.availableBalance,
                     style: theme.textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
