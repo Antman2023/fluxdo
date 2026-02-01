@@ -6,9 +6,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
-import '../../constants.dart';
 import '../../models/topic.dart';
 import '../../utils/responsive.dart';
+import '../../utils/share_utils.dart';
+import '../../providers/preferences_provider.dart';
 import '../../providers/selected_topic_provider.dart';
 import '../../providers/discourse_providers.dart';
 import '../../providers/message_bus_providers.dart';
@@ -403,14 +404,24 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
   void _shareTopic() {
     final user = ref.read(currentUserProvider).value;
     final username = user?.username ?? '';
-    final url = '${AppConstants.baseUrl}/t/topic/${widget.topicId}${username.isNotEmpty ? '?u=$username' : ''}';
+    final prefs = ref.read(preferencesProvider);
+    final url = ShareUtils.buildShareUrl(
+      path: '/t/topic/${widget.topicId}',
+      username: username,
+      anonymousShare: prefs.anonymousShare,
+    );
     Share.share(url);
   }
 
   Future<void> _openInBrowser() async {
     final user = ref.read(currentUserProvider).value;
     final username = user?.username ?? '';
-    final url = '${AppConstants.baseUrl}/t/topic/${widget.topicId}${username.isNotEmpty ? '?u=$username' : ''}';
+    final prefs = ref.read(preferencesProvider);
+    final url = ShareUtils.buildShareUrl(
+      path: '/t/topic/${widget.topicId}',
+      username: username,
+      anonymousShare: prefs.anonymousShare,
+    );
     final uri = Uri.parse(url);
 
     if (await canLaunchUrl(uri)) {

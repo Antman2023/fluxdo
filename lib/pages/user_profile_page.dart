@@ -11,6 +11,8 @@ import '../utils/time_utils.dart';
 import '../utils/number_utils.dart';
 import '../services/emoji_handler.dart';
 import '../constants.dart';
+import '../utils/share_utils.dart';
+import '../providers/preferences_provider.dart';
 import '../widgets/common/flair_badge.dart';
 import '../widgets/content/discourse_html_content/discourse_html_content_widget.dart';
 import '../widgets/content/collapsed_html_content.dart';
@@ -169,7 +171,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   void _shareUser() {
     final user = ref.read(currentUserProvider).value;
     final username = user?.username ?? '';
-    final url = '${AppConstants.baseUrl}/u/${widget.username}${username.isNotEmpty ? '?u=$username' : ''}';
+    final prefs = ref.read(preferencesProvider);
+    final url = ShareUtils.buildShareUrl(
+      path: '/u/${widget.username}',
+      username: username,
+      anonymousShare: prefs.anonymousShare,
+    );
     Share.share(url);
   }
 

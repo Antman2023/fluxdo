@@ -44,6 +44,33 @@ class PreferencesPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          _buildSectionHeader(theme, '分享'),
+          const SizedBox(height: 12),
+          Card(
+            elevation: 0,
+            color: theme.colorScheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            ),
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: SwitchListTile(
+              title: const Text('匿名分享'),
+              subtitle: const Text('分享链接时不附带个人用户标识'),
+              secondary: Icon(
+                Icons.visibility_off_rounded,
+                color: preferences.anonymousShare
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+              value: preferences.anonymousShare,
+              onChanged: (value) {
+                ref.read(preferencesProvider.notifier).setAnonymousShare(value);
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
