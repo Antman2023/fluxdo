@@ -137,7 +137,7 @@ class TopicPostList extends StatelessWidget {
                       onLike: () => ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('点赞功能开发中...')),
                       ),
-                      onReply: isLoggedIn ? () => onReply(post) : null,
+                      onReply: isLoggedIn ? () => onReply(post.postNumber == 1 ? null : post) : null,
                       onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
                       onRefreshPost: onRefreshPost,
                       onJumpToPost: onJumpToPost,
@@ -228,7 +228,7 @@ class TopicPostList extends StatelessWidget {
                           onLike: () => ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('点赞功能开发中...')),
                           ),
-                          onReply: isLoggedIn ? () => onReply(post) : null,
+                          onReply: isLoggedIn ? () => onReply(post.postNumber == 1 ? null : post) : null,
                           onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
                           onRefreshPost: onRefreshPost,
                           onJumpToPost: onJumpToPost,
