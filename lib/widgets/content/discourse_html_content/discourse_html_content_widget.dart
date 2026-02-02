@@ -245,6 +245,18 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
            return {'vertical-align': 'middle'};
         }
 
+        // Callout 标题内的链接继承标题颜色
+        if (element.localName == 'a') {
+          final parentClasses =
+              (element.parent?.classes ?? const <String>[]).cast<String>();
+          if (parentClasses.contains('callout-title')) {
+            return {
+              'color': 'inherit',
+              'text-decoration': 'none',
+            };
+          }
+        }
+
         // 紧凑模式下移除段落边距
         if (widget.compact && element.localName == 'p') {
           return {'margin': '0'};
@@ -376,7 +388,8 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         onInternalLinkTap: widget.onInternalLinkTap,
         post: widget.post,
         topicId: widget.topicId,
-        linkCounts: widget.linkCounts,
+        // 避免嵌套渲染重复注入点击数
+        linkCounts: null,
         mentionedUsers: widget.mentionedUsers,
         enableSelectionArea: widget.enableSelectionArea,
         enablePanguSpacing: widget.enablePanguSpacing,

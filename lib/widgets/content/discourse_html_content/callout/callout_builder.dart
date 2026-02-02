@@ -10,6 +10,7 @@ Widget buildCalloutBlock({
   required String innerHtml,
   required String type,
   required String? title,
+  required String? titleHtml,
   required bool? foldable,
   required Widget Function(String html, TextStyle? textStyle) htmlBuilder,
 }) {
@@ -19,16 +20,16 @@ Widget buildCalloutBlock({
   // 注意：只处理 <p> 标签内的标记，不要影响 <pre>/<code> 内的内容
   var contentHtml = innerHtml;
 
-  // 情况1: <p>[!type]...<br> 格式，移除标记但保留 <p> 和后续内容
+  // 情况1: <p>[!type]...<br> 格式，移除标记和标题，但保留 <p> 和后续内容
   contentHtml = contentHtml.replaceFirst(
-    RegExp(r'<p>\s*\[!\w+\][+-]?[^<]*<br\s*/?>'),
-    '<p>'
+    RegExp(r'<p>\s*\[![^\]]+\][+-]?.*?<br\s*/?>', dotAll: true),
+    '<p>',
   );
 
-  // 情况2: <p>[!type]...</p> 格式，整个 <p> 只包含标记
+  // 情况2: <p>[!type]...</p> 格式，整个 <p> 只包含标记/标题
   contentHtml = contentHtml.replaceFirst(
-    RegExp(r'<p>\s*\[!\w+\][+-]?[^<]*</p>'),
-    ''
+    RegExp(r'<p>\s*\[![^\]]+\][+-]?.*?</p>', dotAll: true),
+    '',
   );
 
   // 清理空的 <p></p> 标签
@@ -48,19 +49,37 @@ Widget buildCalloutBlock({
   final hasCodeBlock = contentHtml.contains('<pre>') || contentHtml.contains('<code>');
   final hasContent = textOnly.isNotEmpty || hasCodeBlock;
 
+  final titleStyle = theme.textTheme.titleSmall?.copyWith(
+    fontWeight: FontWeight.w600,
+    color: config.color,
+  );
+
+  String? wrappedTitleHtml;
+  if (titleHtml != null && titleHtml.isNotEmpty) {
+    final colorHex = config.color.value
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2);
+    wrappedTitleHtml = '<span class="callout-title" style="color:#$colorHex">$titleHtml</span>';
+  }
+
+  Widget titleWidget;
+  if (wrappedTitleHtml != null) {
+    titleWidget = htmlBuilder(wrappedTitleHtml, titleStyle);
+  } else {
+    titleWidget = Text(
+      title?.isNotEmpty == true ? title! : config.defaultTitle,
+      style: titleStyle,
+    );
+  }
+
   // 构建标题行
   Widget titleRow = Row(
     children: [
       Icon(config.icon, size: 18, color: config.color),
       const SizedBox(width: 8),
       Expanded(
-        child: Text(
-          title?.isNotEmpty == true ? title! : config.defaultTitle,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: config.color,
-          ),
-        ),
+        child: titleWidget,
       ),
       if (foldable != null)
         Icon(
@@ -90,7 +109,7 @@ Widget buildCalloutBlock({
   if (foldable != null && hasContent) {
     return FoldableCallout(
       config: config,
-      title: title?.isNotEmpty == true ? title! : config.defaultTitle,
+      titleWidget: titleWidget,
       contentWidget: contentWidget!,
       initiallyExpanded: foldable,
     );

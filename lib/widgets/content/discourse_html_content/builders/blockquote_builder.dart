@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../callout/callout_builder.dart';
+import '../callout/callout_config.dart';
 
 /// 构建普通引用块 (支持 Obsidian Callout)
 Widget buildBlockquote({
@@ -11,18 +12,48 @@ Widget buildBlockquote({
   final innerHtml = element.innerHtml as String;
 
   // 尝试解析 Obsidian Callout: [!type], [!type]+ (展开), [!type]- (折叠)
-  // 从 HTML 中提取第一行（到 <br> 或换行符为止）
-  final htmlWithLineBreaks = innerHtml.replaceAll(RegExp(r'<br\s*/?>'), '\n');
-  final textContent = htmlWithLineBreaks.replaceAll(RegExp(r'<[^>]*>'), '');
-  final firstLine = textContent.trim().split(RegExp(r'[\n\r]')).first.trim();
+  // 只取当前 blockquote 的首个直接 <p> 内容，避免嵌套 blockquote 干扰
+  String? firstLineText;
+  String? firstLineHtml;
+  final directParagraphs =
+      element.children?.where((e) => e.localName == 'p').toList() ?? const [];
+  if (directParagraphs.isNotEmpty) {
+    final firstParagraphHtml = directParagraphs.first.innerHtml;
+    final brMatch = RegExp(r'<br\s*/?>', caseSensitive: false)
+        .firstMatch(firstParagraphHtml);
+    firstLineHtml =
+        brMatch == null ? firstParagraphHtml : firstParagraphHtml.substring(0, brMatch.start);
+    final htmlWithLineBreaks =
+        firstParagraphHtml.replaceAll(RegExp(r'<br\s*/?>'), '\n');
+    final textContent = htmlWithLineBreaks.replaceAll(RegExp(r'<[^>]*>'), '');
+    firstLineText = textContent.trim().split(RegExp(r'[\n\r]')).first.trim();
+  } else {
+    final htmlWithLineBreaks = innerHtml.replaceAll(RegExp(r'<br\s*/?>'), '\n');
+    final textContent = htmlWithLineBreaks.replaceAll(RegExp(r'<[^>]*>'), '');
+    firstLineText = textContent.trim().split(RegExp(r'[\n\r]')).first.trim();
+  }
 
   // 匹配 [!type], [!type]+, [!type]- 以及可选的标题
-  final calloutMatch = RegExp(r'^\[!(\w+)\]([+-])?\s*(.*)').firstMatch(firstLine);
+  final calloutMatch =
+      RegExp(r'^\[!([^\]]+)\]([+-])?\s*(.*)').firstMatch(firstLineText ?? '');
 
   if (calloutMatch != null) {
-    final type = calloutMatch.group(1)!.toLowerCase();
+    var type = calloutMatch.group(1)!.trim().toLowerCase();
     final foldMarker = calloutMatch.group(2); // + 或 - 或 null
-    final title = calloutMatch.group(3)?.trim();
+    final titleText = calloutMatch.group(3)?.trim();
+    String? titleHtml;
+    if (firstLineHtml != null) {
+      titleHtml = firstLineHtml
+          .replaceFirst(RegExp(r'^\s*\[![^\]]+\][+-]?\s*'), '')
+          .trim();
+      if (titleHtml.isEmpty) {
+        titleHtml = null;
+      }
+    }
+
+    if (!isKnownCalloutType(type)) {
+      type = 'note';
+    }
 
     // 确定折叠状态: null=不可折叠, true=默认展开, false=默认折叠
     bool? foldable;
@@ -37,7 +68,8 @@ Widget buildBlockquote({
       theme: theme,
       innerHtml: innerHtml,
       type: type,
-      title: title,
+      title: titleText,
+      titleHtml: titleHtml,
       foldable: foldable,
       htmlBuilder: htmlBuilder,
     );

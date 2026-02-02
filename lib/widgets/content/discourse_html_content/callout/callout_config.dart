@@ -60,3 +60,38 @@ CalloutConfig getCalloutConfig(String type) {
       return CalloutConfig(Colors.grey, Icons.format_quote, defaultTitle);
   }
 }
+
+bool isKnownCalloutType(String type) {
+  switch (type) {
+    case 'note':
+    case 'abstract':
+    case 'summary':
+    case 'tldr':
+    case 'info':
+    case 'todo':
+    case 'tip':
+    case 'hint':
+    case 'important':
+    case 'success':
+    case 'check':
+    case 'done':
+    case 'question':
+    case 'help':
+    case 'faq':
+    case 'warning':
+    case 'caution':
+    case 'attention':
+    case 'failure':
+    case 'fail':
+    case 'missing':
+    case 'danger':
+    case 'error':
+    case 'bug':
+    case 'example':
+    case 'quote':
+    case 'cite':
+      return true;
+    default:
+      return false;
+  }
+}

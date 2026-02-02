@@ -4,14 +4,14 @@ import 'callout_config.dart';
 /// 可折叠的 Callout Widget
 class FoldableCallout extends StatefulWidget {
   final CalloutConfig config;
-  final String title;
+  final Widget titleWidget;
   final Widget contentWidget;
   final bool initiallyExpanded;
 
   const FoldableCallout({
     super.key,
     required this.config,
-    required this.title,
+    required this.titleWidget,
     required this.contentWidget,
     required this.initiallyExpanded,
   });
@@ -96,13 +96,7 @@ class _FoldableCalloutState extends State<FoldableCallout>
                   Icon(widget.config.icon, size: 18, color: widget.config.color),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      widget.title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: widget.config.color,
-                      ),
-                    ),
+                    child: widget.titleWidget,
                   ),
                   RotationTransition(
                     turns: _iconTurns,
