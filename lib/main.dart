@@ -192,7 +192,7 @@ class _MainPageState extends ConsumerState<MainPage> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             _messageBusSub?.close();
-            _messageBusSub = ref.listenManual<void>(messageBusInitProvider, (_, __) {});
+            _messageBusSub = ref.listenManual<void>(messageBusInitProvider, (_, _) {});
           });
         } else if (user == null) {
           _messageBusInitialized = false;

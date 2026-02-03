@@ -55,7 +55,7 @@ class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
 
       final currentUser = await ref.read(currentUserProvider.future);
       if (currentUser == null) return null;
-      final gamificationScore = currentUser?.gamificationScore;
+      final gamificationScore = currentUser.gamificationScore;
 
       final service = LdcOAuthService();
       final userInfo = await service.getUserInfo(gamificationScore: gamificationScore);
@@ -72,6 +72,7 @@ class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
   }
 
   Future<void> refresh() async {
+    // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<LdcUserInfo?>().copyWithPrevious(state);
     state = await AsyncValue.guard(() => _fetchUserInfo());
   }

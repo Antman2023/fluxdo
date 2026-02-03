@@ -197,7 +197,7 @@ class TopicPostList extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                            color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                            color: theme.colorScheme.primaryContainer.withValues(alpha:0.3),
                             child: Text(
                               '上次看到这里',
                               style: theme.textTheme.labelSmall?.copyWith(

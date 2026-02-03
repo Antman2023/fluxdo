@@ -382,7 +382,8 @@ class NetworkSettingsService {
 
   void _touch() {
     _version++;
-    notifier.notifyListeners();
+    // 通过重新赋值触发监听器更新
+    notifier.value = notifier.value.copyWith();
   }
 
   String _resolveSelected(String selected, List<DohServer> customServers) {

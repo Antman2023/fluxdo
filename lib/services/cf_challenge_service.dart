@@ -117,12 +117,6 @@ class CfChallengeService {
       ctx = await _contextReadyCompleter!.future;
     }
 
-    if (ctx == null) {
-      debugPrint('[CfChallenge] No context available for manual verify (context not set and navigatorKey not ready)');
-      // 返回 null 而不是 false，让调用方知道这是"无法验证"而非"验证失败"
-      return null;
-    }
-
     // 如果已经在验证中 (Overlay 存在)
     if (_isVerifying) {
         // 如果当前是后台模式，且请求强制前台，则提升为前台
@@ -144,6 +138,7 @@ class CfChallengeService {
 
     _isVerifying = true;
 
+    // ignore: use_build_context_synchronously
     final overlayState = Overlay.maybeOf(ctx, rootOverlay: true) ?? navigatorKey.currentState?.overlay;
     if (overlayState == null) {
       debugPrint('[CfChallenge] No overlay available for manual verify');
@@ -196,7 +191,7 @@ class CfChallengeService {
         interceptorRoute = PageRouteBuilder(
             opaque: false,
             barrierColor: Colors.transparent,
-            pageBuilder: (context, _, __) {
+            pageBuilder: (context, _, _) {
                  return PopScope(
                     canPop: false,
                     onPopInvokedWithResult: (didPop, result) async {

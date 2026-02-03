@@ -1,5 +1,5 @@
 /// Extended Image Lite - A lightweight version of extended_image with iOS-style physics
-library extended_image_lite;
+library;
 
 export 'package:extended_image_library/extended_image_library.dart';
 

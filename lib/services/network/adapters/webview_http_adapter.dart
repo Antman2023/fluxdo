@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../../constants.dart';
 import '../../webview_settings.dart';
@@ -47,10 +47,10 @@ class WebViewHttpAdapter implements HttpClientAdapter {
           },
         );
         
-        print('[WebViewAdapter] Controller created');
+        debugPrint('[WebViewAdapter] Controller created');
       },
       onLoadStop: (controller, url) {
-        print('[WebViewAdapter] Page loaded: $url');
+        debugPrint('[WebViewAdapter] Page loaded: $url');
         if (_initCompleter != null && !_initCompleter!.isCompleted) {
           _isInitialized = true;
           _initCompleter!.complete();
@@ -62,10 +62,10 @@ class WebViewHttpAdapter implements HttpClientAdapter {
     
     await _initCompleter!.future.timeout(
       const Duration(seconds: 30),
-      onTimeout: () => print('[WebViewAdapter] Init timeout'),
+      onTimeout: () => debugPrint('[WebViewAdapter] Init timeout'),
     );
     
-    print('[WebViewAdapter] Initialized');
+    debugPrint('[WebViewAdapter] Initialized');
   }
   
   @override
@@ -120,7 +120,7 @@ class WebViewHttpAdapter implements HttpClientAdapter {
           }
         }
       } catch (e) {
-        print('[WebViewAdapter] Failed to sync cookies via CookieManager: $e');
+        debugPrint('[WebViewAdapter] Failed to sync cookies via CookieManager: $e');
       }
     }
 
@@ -152,18 +152,18 @@ class WebViewHttpAdapter implements HttpClientAdapter {
       (async function() {
         try {
           const fetchOptions = {
-            method: '${method}',
+            method: '$method',
             headers: ${jsonEncode(headersMap)},
             credentials: 'include'
           };
           ${bodyJson != null ? "fetchOptions.body = ${jsonEncode(bodyJson)};" : ""}
           
-          const response = await fetch('${url}', fetchOptions);
+          const response = await fetch('$url', fetchOptions);
           
           let bodyData;
           let isBase64 = false;
           
-          if (${isBinary}) {
+          if ($isBinary) {
             const buffer = await response.arrayBuffer();
             let binary = '';
             const bytes = new Uint8Array(buffer);
@@ -190,19 +190,19 @@ class WebViewHttpAdapter implements HttpClientAdapter {
           });
           
           window.flutter_inappwebview.callHandler('fetchResult', {
-            requestId: '${requestId}',
+            requestId: '$requestId',
             result: result
           });
         } catch (e) {
           window.flutter_inappwebview.callHandler('fetchResult', {
-            requestId: '${requestId}',
+            requestId: '$requestId',
             result: JSON.stringify({ok: false, error: e.toString()})
           });
         }
       })();
     ''';
     
-    print('[WebViewAdapter] Fetching: $method $url (id: $requestId, binary: $isBinary)');
+    debugPrint('[WebViewAdapter] Fetching: $method $url (id: $requestId, binary: $isBinary)');
     
     await _controller!.evaluateJavascript(source: script);
     
@@ -243,7 +243,7 @@ class WebViewHttpAdapter implements HttpClientAdapter {
       });
     }
     
-    print('[WebViewAdapter] Response: $statusCode (binary: $isBase64)');
+    debugPrint('[WebViewAdapter] Response: $statusCode (binary: $isBase64)');
     
     if (isBase64) {
       final bytes = base64Decode(bodyContent);

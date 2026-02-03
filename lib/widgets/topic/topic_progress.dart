@@ -47,7 +47,7 @@ class TopicProgress extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   widthFactor: progressPercent.clamp(0.0, 1.0),
                   child: Container(
-                    color: theme.colorScheme.primary.withOpacity(0.12),
+                    color: theme.colorScheme.primary.withValues(alpha:0.12),
                   ),
                 ),
               ),
@@ -70,7 +70,7 @@ class TopicProgress extends StatelessWidget {
                       child: Text(
                         '/',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                          color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.5),
                           fontSize: 13,
                         ),
                       ),
@@ -195,7 +195,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.2),
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -245,7 +245,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
                               Text(
                                 '/ $_totalCount',
                                 style: theme.textTheme.titleLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.4),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -255,7 +255,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primaryContainer.withOpacity(0.4),
+                              color: theme.colorScheme.primaryContainer.withValues(alpha:0.4),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -310,7 +310,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
                                   child: Container(
                                     width: 6,
                                     decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary.withOpacity(0.5),
+                                      color: theme.colorScheme.primary.withValues(alpha:0.5),
                                       borderRadius: BorderRadius.circular(3),
                                     ),
                                   ),
@@ -392,7 +392,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha:0.05),
             blurRadius: 2,
             spreadRadius: 1,
           ),
@@ -412,7 +412,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(0.3),
+            color: theme.colorScheme.primary.withValues(alpha:0.3),
             blurRadius: _isDragging ? 12 : 8,
             offset: const Offset(0, 4),
           ),

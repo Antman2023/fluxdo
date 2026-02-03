@@ -114,7 +114,6 @@ class _PollWidgetState extends State<_PollWidget> {
   }
 
   bool get _isMultiple => _poll.type == 'multiple';
-  bool get _isRegular => _poll.type == 'regular';
 
   Future<void> _vote(String optionId) async {
     if (_poll.status == 'closed' || _isVoting) return;
@@ -365,7 +364,7 @@ class _PollWidgetState extends State<_PollWidget> {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(12),
       itemCount: _poll.options.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final option = _poll.options[index];
         final isUserVoted = _userVotes.contains(option.id);
@@ -419,7 +418,7 @@ class _PollWidgetState extends State<_PollWidget> {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(12),
       itemCount: _poll.options.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final option = _poll.options[index];
         final percentage = _poll.voters > 0 ? (option.votes / _poll.voters * 100) : 0.0;

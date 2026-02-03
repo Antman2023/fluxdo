@@ -46,8 +46,6 @@ class _LinkInsertDialogState extends State<LinkInsertDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AlertDialog(
       title: const Text('插入链接'),
       content: Form(

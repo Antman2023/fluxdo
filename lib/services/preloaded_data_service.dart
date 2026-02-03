@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import '../constants.dart';
 import '../models/topic.dart';
 import '../models/category.dart';

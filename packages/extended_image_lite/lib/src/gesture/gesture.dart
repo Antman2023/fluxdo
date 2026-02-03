@@ -25,9 +25,8 @@ class ExtendedImageGesture extends StatefulWidget {
     this.extendedImageState, {
     this.imageBuilder,
     CanScaleImage? canScaleImage,
-    Key? key,
-  }) : canScaleImage = canScaleImage ?? _defaultCanScaleImage,
-       super(key: key);
+    super.key,
+  }) : canScaleImage = canScaleImage ?? _defaultCanScaleImage;
   final ExtendedImageState extendedImageState;
   final ImageBuilderForGesture? imageBuilder;
   final CanScaleImage canScaleImage;
@@ -117,15 +116,15 @@ class ExtendedImageGestureState extends State<ExtendedImageGesture>
       onScaleUpdate: handleScaleUpdate,
       onScaleEnd: handleScaleEnd,
       onDoubleTap: _handleDoubleTap,
-      child: image,
       behavior: _gestureConfig?.hitTestBehavior,
+      child: image,
     );
 
     image = Listener(
-      child: image,
       onPointerDown: _handlePointerDown,
       onPointerSignal: _handlePointerSignal,
       behavior: _gestureConfig!.hitTestBehavior,
+      child: image,
     );
 
     return image;

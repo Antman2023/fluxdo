@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart' hide Badge;
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fluxdo/services/message_bus_service.dart';
@@ -99,7 +98,7 @@ class DiscourseService {
           options.headers['Discourse-Present'] = 'true';
         }
 
-        print('[DIO] ${options.method} ${options.uri}');
+        debugPrint('[DIO] ${options.method} ${options.uri}');
         handler.next(options);
       },
       onResponse: (response, handler) async {
@@ -137,13 +136,13 @@ class DiscourseService {
           _storage.write(key: _usernameKey, value: username);
         }
 
-        print('[DIO] ${response.statusCode} ${response.requestOptions.uri}');
+        debugPrint('[DIO] ${response.statusCode} ${response.requestOptions.uri}');
         handler.next(response);
       },
       onError: (error, handler) async {
         final skipAuthCheck = error.requestOptions.extra['skipAuthCheck'] == true;
         final data = error.response?.data;
-        print('[DIO] Error: ${error.response?.statusCode}');
+        debugPrint('[DIO] Error: ${error.response?.statusCode}');
 
         // 检查官方的被动登出响应头（优先级最高）
         final loggedOut = error.response?.headers.value('discourse-logged-out');
@@ -490,7 +489,7 @@ class DiscourseService {
         return t.toString();
       }).where((name) => name.isNotEmpty).toList();
     } catch (e) {
-      print('[DiscourseService] getTags failed: $e');
+      debugPrint('[DiscourseService] getTags failed: $e');
       return [];
     }
   }
@@ -524,7 +523,7 @@ class DiscourseService {
       final response = await _dio.get('/tags/filter/search', queryParameters: queryParams);
       return TagSearchResult.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {
-      print('[DiscourseService] searchTags failed: $e');
+      debugPrint('[DiscourseService] searchTags failed: $e');
       return TagSearchResult(results: []);
     }
   }
@@ -598,7 +597,7 @@ class DiscourseService {
       final response = await _dio.get('/u/search/users', queryParameters: queryParams);
       return MentionSearchResult.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {
-      print('[DiscourseService] searchUsers failed: $e');
+      debugPrint('[DiscourseService] searchUsers failed: $e');
       return const MentionSearchResult(users: [], groups: []);
     }
   }
@@ -619,7 +618,7 @@ class DiscourseService {
       );
       return MentionCheckResult.fromJson(response.data as Map<String, dynamic>);
     } catch (e) {
-      print('[DiscourseService] checkMentions failed: $e');
+      debugPrint('[DiscourseService] checkMentions failed: $e');
       return const MentionCheckResult();
     }
   }
@@ -647,7 +646,7 @@ class DiscourseService {
         return _username;
       }
     } catch (e) {
-      print('[DIO] Failed to get username from preloaded: $e');
+      debugPrint('[DIO] Failed to get username from preloaded: $e');
     }
 
     return null;
@@ -676,7 +675,7 @@ class DiscourseService {
         return user;
       }
     } catch (e) {
-      print('[DiscourseService] getPreloadedCurrentUser failed: $e');
+      debugPrint('[DiscourseService] getPreloadedCurrentUser failed: $e');
     }
     return null;
   }
@@ -691,7 +690,7 @@ class DiscourseService {
       currentUserNotifier.value = user;
       return user;
     } catch (e) {
-      print('[DiscourseService] getCurrentUser failed: $e');
+      debugPrint('[DiscourseService] getCurrentUser failed: $e');
       return null;
     }
   }
@@ -864,7 +863,7 @@ class DiscourseService {
       );
       return response.statusCode;
     } on DioException catch (e) {
-      print('[DiscourseService] topicsTimings failed: ${e.response?.statusCode}');
+      debugPrint('[DiscourseService] topicsTimings failed: ${e.response?.statusCode}');
       return e.response?.statusCode;
     }
   }
@@ -1077,7 +1076,7 @@ class DiscourseService {
       
       throw Exception('上传响应中未包含 URL');
     } on DioException catch (e) {
-      print('[DiscourseService] Upload image failed: $e');
+      debugPrint('[DiscourseService] Upload image failed: $e');
       if (e.response?.statusCode == 413) {
         throw Exception('图片文件过大，请压缩后重试');
       }
@@ -1090,7 +1089,7 @@ class DiscourseService {
       }
       rethrow;
     } catch (e) {
-      print('[DiscourseService] Upload image failed: $e');
+      debugPrint('[DiscourseService] Upload image failed: $e');
       rethrow;
     }
   }
@@ -1415,7 +1414,7 @@ class DiscourseService {
       }
       return result;
     } catch (e) {
-      print('[DiscourseService] lookupUrls failed: $e');
+      debugPrint('[DiscourseService] lookupUrls failed: $e');
       return [];
     }
   }
@@ -1464,7 +1463,7 @@ class DiscourseService {
       if (e.response?.statusCode == 403) {
         return null;
       }
-      print('[DiscourseService] getTopicSummary failed: $e');
+      debugPrint('[DiscourseService] getTopicSummary failed: $e');
       rethrow;
     }
   }
@@ -1622,7 +1621,7 @@ class DiscourseService {
       // 返回默认的举报类型
       return FlagType.defaultTypes;
     } catch (e) {
-      print('[DiscourseService] getFlagTypes failed: $e');
+      debugPrint('[DiscourseService] getFlagTypes failed: $e');
       return FlagType.defaultTypes;
     }
   }
@@ -1731,7 +1730,7 @@ class DiscourseService {
       }
       return [];
     } catch (e) {
-      print('[DiscourseService] getTopicVoteWho failed: $e');
+      debugPrint('[DiscourseService] getTopicVoteWho failed: $e');
       return [];
     }
   }
@@ -1772,7 +1771,7 @@ class DiscourseService {
       final data = response.data as Map<String, dynamic>?;
       return data?['raw'] as String?;
     } catch (e) {
-      print('[DiscourseService] getPostRaw failed: $e');
+      debugPrint('[DiscourseService] getPostRaw failed: $e');
       return null;
     }
   }

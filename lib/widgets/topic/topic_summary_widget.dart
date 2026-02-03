@@ -95,7 +95,7 @@ class TopicSummaryWidget extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.errorContainer.withOpacity(0.3),
+        color: theme.colorScheme.errorContainer.withValues(alpha:0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -161,7 +161,7 @@ class TopicSummaryWidget extends ConsumerWidget {
         color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
           width: 0.5,
         ),
       ),
@@ -321,7 +321,7 @@ class _CollapsibleTopicSummaryState
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                  color: theme.colorScheme.primaryContainer.withValues(alpha:0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(

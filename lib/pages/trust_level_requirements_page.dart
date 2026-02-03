@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as html_dom;
 import 'package:html/parser.dart' as html_parser;
 import '../widgets/common/loading_spinner.dart';
 import '../services/network/discourse_dio.dart';
@@ -59,7 +60,7 @@ class _TrustLevelRequirementsPageState
 
       // 查找包含"信任级别"的 div
       final allDivs = document.querySelectorAll('div');
-      var targetDiv;
+      html_dom.Element? targetDiv;
 
       for (var div in allDivs) {
         final h2 = div.querySelector('h2');
@@ -188,7 +189,7 @@ class _TrustLevelRequirementsPageState
             gradient: LinearGradient(
               colors: [
                 colorScheme.surface,
-                colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -202,7 +203,7 @@ class _TrustLevelRequirementsPageState
                 child: Icon(
                   Icons.verified_user_outlined,
                   size: 240,
-                  color: colorScheme.primary.withOpacity(0.05),
+                  color: colorScheme.primary.withValues(alpha:0.05),
                 ),
               ),
               Positioned(
@@ -255,11 +256,11 @@ class _TrustLevelRequirementsPageState
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.4),
+          color: colorScheme.outlineVariant.withValues(alpha:0.4),
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.04),
+            color: colorScheme.shadow.withValues(alpha:0.04),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -271,7 +272,7 @@ class _TrustLevelRequirementsPageState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              color: colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -330,7 +331,7 @@ class _TrustLevelRequirementsPageState
                 border: index != rows.length - 1
                     ? Border(
                         bottom: BorderSide(
-                          color: colorScheme.outlineVariant.withOpacity(0.2),
+                          color: colorScheme.outlineVariant.withValues(alpha:0.2),
                         ),
                       )
                     : null,
@@ -358,9 +359,9 @@ class _TrustLevelRequirementsPageState
                         ),
                         decoration: BoxDecoration(
                           color: isGreen
-                              ? colorScheme.primaryContainer.withOpacity(0.4)
+                              ? colorScheme.primaryContainer.withValues(alpha:0.4)
                               : (isRed
-                                  ? colorScheme.errorContainer.withOpacity(0.4)
+                                  ? colorScheme.errorContainer.withValues(alpha:0.4)
                                   : colorScheme.surfaceContainer),
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -422,13 +423,13 @@ class _TrustLevelRequirementsPageState
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isSuccess
-                  ? theme.colorScheme.primaryContainer.withOpacity(0.2)
+                  ? theme.colorScheme.primaryContainer.withValues(alpha:0.2)
                   : theme.colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isSuccess
-                    ? theme.colorScheme.primary.withOpacity(0.3)
-                    : theme.colorScheme.outline.withOpacity(0.2),
+                    ? theme.colorScheme.primary.withValues(alpha:0.3)
+                    : theme.colorScheme.outline.withValues(alpha:0.2),
               ),
             ),
             child: Row(
@@ -470,7 +471,7 @@ class _TrustLevelRequirementsPageState
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: theme.colorScheme.errorContainer.withOpacity(0.3),
+                color: theme.colorScheme.errorContainer.withValues(alpha:0.3),
                 shape: BoxShape.circle,
               ),
               child: Icon(

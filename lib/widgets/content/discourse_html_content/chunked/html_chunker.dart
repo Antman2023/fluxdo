@@ -70,8 +70,6 @@ class HtmlChunker {
 
     for (final node in document.nodes) {
       if (node is dom.Element) {
-        final tagName = node.localName?.toLowerCase() ?? '';
-
         // 检查是否是块级元素
         if (_isBlockElement(node)) {
           flushPending();
@@ -93,7 +91,7 @@ class HtmlChunker {
           }
         }
       } else if (node is dom.Text) {
-        final text = node.text ?? '';
+        final text = node.text;
         if (text.trim().isNotEmpty) {
           pendingNodes.add(node);
           pendingLength += text.length;

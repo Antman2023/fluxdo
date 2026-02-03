@@ -28,7 +28,8 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
   late Animation<double> _breathingAnimation;
 
   Offset _offset = Offset.zero;
-  bool _isDragging = false;
+  // ignore: unused_field
+  bool _isDragging = false; // 预留：用于拖拽状态判断
   late Size _screenSize;
 
   // 吸附状态，用于决定布局锚点和视觉样式
@@ -272,7 +273,7 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                    boxShadow: [
                      // 1. 基础阴影 (提供立体感)
                      BoxShadow(
-                       color: Colors.black.withOpacity(0.2), 
+                       color: Colors.black.withValues(alpha:0.2), 
                        blurRadius: 6, 
                        spreadRadius: 1,
                        offset: const Offset(0, 2),
@@ -280,7 +281,7 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                      // 2. 呼吸光晕 (使用 Primary 色，提供状态指示)
                      // 即使 Pill 是黑/白的，背后的光晕依然可以是彩色的
                      BoxShadow(
-                       color: colorScheme.primary.withOpacity(0.1 + 0.3 * _breathingAnimation.value), 
+                       color: colorScheme.primary.withValues(alpha:0.1 + 0.3 * _breathingAnimation.value), 
                        blurRadius: 12 + 8 * _breathingAnimation.value, 
                        spreadRadius: 2 + 4 * _breathingAnimation.value,
                      ),
@@ -297,11 +298,11 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
-                   color: backgroundColor.withOpacity(0.9), // 轻微透光
+                   color: backgroundColor.withValues(alpha:0.9), // 轻微透光
                    borderRadius: borderRadius,
                    // 边框非常淡，仅作分割
                    border: Border.all(
-                     color: colorScheme.outline.withOpacity(0.1),
+                     color: colorScheme.outline.withValues(alpha:0.1),
                      width: 1.0,
                    ),
                 ),
@@ -343,7 +344,7 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                         child: Icon(
                           Icons.chevron_right,
                           size: 16,
-                          color: contentColor.withOpacity(0.7),
+                          color: contentColor.withValues(alpha:0.7),
                         ),
                       ),
                   ],

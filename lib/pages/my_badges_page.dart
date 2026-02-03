@@ -152,7 +152,7 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
               end: Alignment.bottomRight,
               colors: [
                 Theme.of(context).colorScheme.surface,
-                Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               ],
             ),
           ),
@@ -164,7 +164,7 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
                 child: Icon(
                   FontAwesomeIcons.medal,
                   size: 200,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
                 ),
               ),
               Positioned(
@@ -240,7 +240,7 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: sectionColor.withOpacity(0.1),
+                    color: sectionColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -312,10 +312,10 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.15),
+                    color: iconColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: iconColor.withOpacity(0.3), width: 1),
+                        color: iconColor.withValues(alpha: 0.3), width: 1),
                   ),
                   child: Text(
                     '×${userBadge.count}',
@@ -342,7 +342,7 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
                       color: theme.colorScheme.surface,
                       boxShadow: [
                         BoxShadow(
-                          color: iconColor.withOpacity(0.2),
+                          color: iconColor.withValues(alpha: 0.2),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         )

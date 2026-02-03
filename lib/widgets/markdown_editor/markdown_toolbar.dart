@@ -457,7 +457,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> with WidgetsBindingObs
         color: theme.colorScheme.surface,
         border: Border(
           top: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
             width: 0.5,
           ),
         ),

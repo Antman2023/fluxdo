@@ -581,7 +581,7 @@ class _SearchPostCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
         ),
       ),
       child: InkWell(
@@ -642,7 +642,7 @@ class _SearchPostCard extends ConsumerWidget {
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.surfaceContainerHighest
-                                  .withOpacity(0.5),
+                                  .withValues(alpha:0.5),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -714,7 +714,7 @@ class _SearchPostCard extends ConsumerWidget {
                   Text(
                     TimeUtils.formatRelativeTime(post.createdAt),
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.7),
                     ),
                   ),
                 ],
@@ -782,10 +782,10 @@ class _SearchPostCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: _parseColor(category.color).withOpacity(0.08),
+        color: _parseColor(category.color).withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: _parseColor(category.color).withOpacity(0.2),
+          color: _parseColor(category.color).withValues(alpha:0.2),
           width: 1,
         ),
       ),
@@ -954,7 +954,7 @@ class _SearchUserCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
         ),
       ),
       child: InkWell(

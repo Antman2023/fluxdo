@@ -1,4 +1,4 @@
-/// 帖子数据模型
+// 帖子数据模型
 import '../utils/time_utils.dart';
 
 /// 标签模型

@@ -113,7 +113,7 @@ class AppearancePage extends ConsumerWidget {
         ),
         // Preset Colors
         ...options.map((option) {
-          final isSelected = !isDynamic && option.color.value == currentColor.value;
+          final isSelected = !isDynamic && option.color.toARGB32() == currentColor.toARGB32();
           return GestureDetector(
             onTap: () {
               ref.read(themeProvider.notifier).setSeedColor(option.color);
@@ -151,7 +151,7 @@ class AppearancePage extends ConsumerWidget {
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: (isDynamic ? Theme.of(context).colorScheme.primary : color).withOpacity(0.4),
+                  color: (isDynamic ? Theme.of(context).colorScheme.primary : color).withValues(alpha: 0.4),
                   blurRadius: 8,
                   spreadRadius: 2,
                 )

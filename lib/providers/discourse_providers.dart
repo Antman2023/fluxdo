@@ -2,7 +2,7 @@
 /// 
 /// 这个文件重新导出所有 Discourse 相关的 providers 和模型
 /// 保持向后兼容，其他文件可以继续使用 `import 'discourse_providers.dart'`
-library discourse_providers;
+library;
 
 // 核心 providers (服务、认证、当前用户)
 export 'core_providers.dart';

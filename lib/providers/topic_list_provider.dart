@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
 import '../services/discourse_service.dart';
@@ -136,7 +137,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
       if (response.topics.isEmpty) _hasMore = false;
       state = AsyncValue.data(response.topics);
     } catch (e) {
-      print('Silent refresh failed: $e');
+      debugPrint('Silent refresh failed: $e');
     }
   }
 
@@ -144,6 +145,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
   Future<void> loadMore() async {
     if (!_hasMore || state.isLoading) return;
     
+    // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
     
     state = await AsyncValue.guard(() async {
@@ -212,7 +214,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
 
       state = AsyncValue.data(newList);
     } catch (e) {
-      print('[TopicList] 刷新话题 $topicId 失败: $e');
+      debugPrint('[TopicList] 刷新话题 $topicId 失败: $e');
     }
   }
 

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -226,10 +225,10 @@ class TopicPreviewDialog extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: _parseColor(category.color).withOpacity(0.1),
+              color: _parseColor(category.color).withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _parseColor(category.color).withOpacity(0.3),
+                color: _parseColor(category.color).withValues(alpha:0.3),
                 width: 1,
               ),
             ),
@@ -283,7 +282,7 @@ class TopicPreviewDialog extends ConsumerWidget {
           (tag) => Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -395,7 +394,7 @@ class TopicPreviewDialog extends ConsumerWidget {
         color: theme.colorScheme.surfaceContainerLow,
         border: Border(
           top: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+            color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
           ),
         ),
       ),

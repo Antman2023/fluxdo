@@ -28,7 +28,8 @@ class DohProxyService {
   String? _currentDohServer;
   bool? _currentPreferIPv6;
   int? _currentPreferredPort;
-  Isolate? _ffiIsolate;
+  // ignore: unused_field
+  Isolate? _ffiIsolate; // 保持引用防止 GC
   SendPort? _ffiSendPort;
   Future<void> _ffiQueue = Future.value();
 

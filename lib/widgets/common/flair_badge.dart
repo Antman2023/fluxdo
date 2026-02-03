@@ -187,7 +187,7 @@ class FlairBadge extends StatelessWidget {
             width: imageSize,
             height: imageSize,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) {
+            errorBuilder: (_, _, _) {
               // 如果图片加载失败，显示首字母
               final initial = (flairName ?? '').isNotEmpty
                   ? flairName![0].toUpperCase()

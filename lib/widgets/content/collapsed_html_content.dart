@@ -74,7 +74,7 @@ class CollapsedHtmlContent extends StatelessWidget {
               width: emojiSize,
               height: emojiSize,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Text(alt ?? ''),
+              errorBuilder: (_, _, _) => Text(alt ?? ''),
             ),
           ),
         );

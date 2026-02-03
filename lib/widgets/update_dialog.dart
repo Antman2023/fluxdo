@@ -34,7 +34,7 @@ class UpdateDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha:0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -48,7 +48,7 @@ class UpdateDialog extends StatelessWidget {
             Container(
               height: 140,
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.3),
+                color: colorScheme.primaryContainer.withValues(alpha:0.3),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Stack(
@@ -60,7 +60,7 @@ class UpdateDialog extends StatelessWidget {
                     child: Icon(
                       Icons.rocket_launch_rounded,
                       size: 120,
-                      color: colorScheme.primary.withOpacity(0.1),
+                      color: colorScheme.primary.withValues(alpha:0.1),
                     ),
                   ),
                   Column(
@@ -73,7 +73,7 @@ class UpdateDialog extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.primary.withOpacity(0.2),
+                              color: colorScheme.primary.withValues(alpha:0.2),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -135,10 +135,10 @@ class UpdateDialog extends StatelessWidget {
                       constraints: const BoxConstraints(maxHeight: 200),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        color: colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                          color: colorScheme.outlineVariant.withValues(alpha:0.5),
                         ),
                       ),
                       child: SingleChildScrollView(
@@ -222,7 +222,7 @@ class UpdateDialog extends StatelessWidget {
       decoration: BoxDecoration(
         color: isNew ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
-        border: isNew ? Border.all(color: colorScheme.primary.withOpacity(0.5)) : null,
+        border: isNew ? Border.all(color: colorScheme.primary.withValues(alpha:0.5)) : null,
       ),
       child: Text(
         'v$version',

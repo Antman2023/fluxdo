@@ -97,7 +97,7 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                               side: BorderSide(
-                                color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                               ),
                             ),
                             child: ListTile(

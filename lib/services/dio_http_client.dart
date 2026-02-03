@@ -74,7 +74,7 @@ class DioHttpClient extends http.BaseClient {
       final contentLength = contentLengthStr != null ? int.tryParse(contentLengthStr) : null;
 
       // 获取流式响应体
-      final responseBody = response.data as dio.ResponseBody?;
+      final responseBody = response.data;
       final Stream<List<int>> responseStream;
 
       if (responseBody != null) {

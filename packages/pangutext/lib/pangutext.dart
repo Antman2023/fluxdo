@@ -53,7 +53,7 @@ class Pangu {
   static const String _upperAn = 'A-Z0-9';
 
   static const String _operatorsBase = '\\+\\*=&';
-  static const String _operatorsWithHyphen = '${_operatorsBase}\\-';
+  static const String _operatorsWithHyphen = '$_operatorsBase\\-';
   static const String _operatorsNoHyphen = _operatorsBase;
   static const String _gradeOperators = '\\+\\-\\*';
 
@@ -65,124 +65,124 @@ class Pangu {
   static const String _rightBracketsExtended = '\\)\\]\\}<>\u201d';
 
   static const String _ansCjkAfter =
-      '${_a}\u0370-\u03ff0-9@\\\$%\\^&\\*\\-\\+\\\\=\u00a1-\u00ff\u2150-\u218f\u2700—\u27bf';
+      '$_a\u0370-\u03ff0-9@\\\$%\\^&\\*\\-\\+\\\\=\u00a1-\u00ff\u2150-\u218f\u2700—\u27bf';
   static const String _ansBeforeCjk =
-      '${_a}\u0370-\u03ff0-9\\\$%\\^&\\*\\-\\+\\\\=\u00a1-\u00ff\u2150-\u218f\u2700—\u27bf';
+      '$_a\u0370-\u03ff0-9\\\$%\\^&\\*\\-\\+\\\\=\u00a1-\u00ff\u2150-\u218f\u2700—\u27bf';
 
   static const String _filePathDirs =
       'home|root|usr|etc|var|opt|tmp|dev|mnt|proc|sys|bin|boot|lib|media|run|sbin|srv|node_modules|path|project|src|dist|test|tests|docs|templates|assets|public|static|config|scripts|tools|build|out|target|your|\\.claude|\\.git|\\.vscode';
   static const String _filePathChars = '[A-Za-z0-9_\\-\\.@\\+\\*]+';
 
   static final RegExp _unixAbsoluteFilePath = RegExp(
-    '/(?:\\.?(?:${_filePathDirs})|\\.(?:[A-Za-z0-9_\\-]+))(?:/${_filePathChars})*',
+    '/(?:\\.?(?:$_filePathDirs)|\\.(?:[A-Za-z0-9_\\-]+))(?:/$_filePathChars)*',
   );
   static final RegExp _unixRelativeFilePath = RegExp(
-    '(?:\\./)?(?:${_filePathDirs})(?:/${_filePathChars})+',
+    '(?:\\./)?(?:$_filePathDirs)(?:/$_filePathChars)+',
   );
   static final RegExp _windowsFilePath = RegExp(
     '[A-Z]:\\\\(?:[A-Za-z0-9_\\-\\. ]+\\\\?)+',
   );
 
-  static final RegExp _anyCjk = RegExp('[${_cjk}]');
+  static final RegExp _anyCjk = RegExp('[$_cjk]');
 
   static final RegExp _cjkPunctuation =
-      RegExp('([${_cjk}])([!;,\\?:]+)(?=[${_cjk}${_an}])');
+      RegExp('([$_cjk])([!;,\\?:]+)(?=[$_cjk$_an])');
   static final RegExp _anPunctuationCjk =
-      RegExp('([${_an}])([!;,\\?]+)([${_cjk}])');
+      RegExp('([$_an])([!;,\\?]+)([$_cjk])');
   static final RegExp _cjkTilde =
-      RegExp('([${_cjk}])(~+)(?!=)(?=[${_cjk}${_an}])');
-  static final RegExp _cjkTildeEquals = RegExp('([${_cjk}])(~=)');
+      RegExp('([$_cjk])(~+)(?!=)(?=[$_cjk$_an])');
+  static final RegExp _cjkTildeEquals = RegExp('([$_cjk])(~=)');
   static final RegExp _cjkPeriod =
-      RegExp('([${_cjk}])(\\.)(?![${_an}\\./])(?=[${_cjk}${_an}])');
+      RegExp('([$_cjk])(\\.)(?![$_an\\./])(?=[$_cjk$_an])');
   static final RegExp _anPeriodCjk =
-      RegExp('([${_an}])(\\.)([${_cjk}])');
-  static final RegExp _anColonCjk = RegExp('([${_an}])(:)([${_cjk}])');
-  static final RegExp _dotsCjk = RegExp('([\\.]{2,}|\u2026)([${_cjk}])');
+      RegExp('([$_an])(\\.)([$_cjk])');
+  static final RegExp _anColonCjk = RegExp('([$_an])(:)([$_cjk])');
+  static final RegExp _dotsCjk = RegExp('([\\.]{2,}|\u2026)([$_cjk])');
   static final RegExp _fixCjkColonAns =
-      RegExp('([${_cjk}])\\:([${_upperAn}\\(\\)])');
+      RegExp('([$_cjk])\\:([$_upperAn\\(\\)])');
 
-  static final RegExp _cjkQuote = RegExp('([${_cjk}])([${_quotes}])');
-  static final RegExp _quoteCjk = RegExp('([${_quotes}])([${_cjk}])');
+  static final RegExp _cjkQuote = RegExp('([$_cjk])([$_quotes])');
+  static final RegExp _quoteCjk = RegExp('([$_quotes])([$_cjk])');
   static final RegExp _fixQuoteAnyQuote =
-      RegExp('([${_quotes}]+)[ ]*(.+?)[ ]*([${_quotes}]+)');
-  static final RegExp _quoteAn = RegExp('([\u201d])([${_an}])');
-  static final RegExp _cjkQuoteAn = RegExp('([${_cjk}])(")([${_an}])');
+      RegExp('([$_quotes]+)[ ]*(.+?)[ ]*([$_quotes]+)');
+  static final RegExp _quoteAn = RegExp('([\u201d])([$_an])');
+  static final RegExp _cjkQuoteAn = RegExp('([$_cjk])(")([$_an])');
 
   static final RegExp _cjkSingleQuoteButPossessive =
-      RegExp("([${_cjk}])('[^s])");
-  static final RegExp _singleQuoteCjk = RegExp("(')([${_cjk}])");
+      RegExp("([$_cjk])('[^s])");
+  static final RegExp _singleQuoteCjk = RegExp("(')([$_cjk])");
   static final RegExp _fixPossessiveSingleQuote =
-      RegExp("([${_an}${_cjk}])( )('s)");
+      RegExp("([$_an$_cjk])( )('s)");
 
   static final RegExp _hashAnsCjkHash =
-      RegExp('([${_cjk}])(#)([${_cjk}]+)(#)([${_cjk}])');
-  static final RegExp _cjkHash = RegExp('([${_cjk}])(#([^ ]))');
-  static final RegExp _hashCjk = RegExp('(([^ ])#)([${_cjk}])');
+      RegExp('([$_cjk])(#)([$_cjk]+)(#)([$_cjk])');
+  static final RegExp _cjkHash = RegExp('([$_cjk])(#([^ ]))');
+  static final RegExp _hashCjk = RegExp('(([^ ])#)([$_cjk])');
 
   static final RegExp _cjkOperatorAns =
-      RegExp('([${_cjk}])([${_operatorsWithHyphen}])([${_an}])');
+      RegExp('([$_cjk])([$_operatorsWithHyphen])([$_an])');
   static final RegExp _ansOperatorCjk =
-      RegExp('([${_an}])([${_operatorsWithHyphen}])([${_cjk}])');
+      RegExp('([$_an])([$_operatorsWithHyphen])([$_cjk])');
   static final RegExp _ansOperatorAns =
-      RegExp('([${_an}])([${_operatorsNoHyphen}])([${_an}])');
+      RegExp('([$_an])([$_operatorsNoHyphen])([$_an])');
 
   static final RegExp _ansHyphenAnsNotCompound = RegExp(
     '([A-Za-z])(-(?![a-z]))([A-Za-z0-9])|([A-Za-z]+[0-9]+)(-(?![a-z]))([0-9])|([0-9])(-(?![a-z0-9]))([A-Za-z])',
   );
 
-  static final RegExp _cjkSlashCjk = RegExp('([${_cjk}])([/])([${_cjk}])');
-  static final RegExp _cjkSlashAns = RegExp('([${_cjk}])([/])([${_an}])');
-  static final RegExp _ansSlashCjk = RegExp('([${_an}])([/])([${_cjk}])');
-  static final RegExp _ansSlashAns = RegExp('([${_an}])([/])([${_an}])');
+  static final RegExp _cjkSlashCjk = RegExp('([$_cjk])([/])([$_cjk])');
+  static final RegExp _cjkSlashAns = RegExp('([$_cjk])([/])([$_an])');
+  static final RegExp _ansSlashCjk = RegExp('([$_an])([/])([$_cjk])');
+  static final RegExp _ansSlashAns = RegExp('([$_an])([/])([$_an])');
 
   static final RegExp _singleLetterGradeCjk =
-      RegExp('\\b([${_a}])([${_gradeOperators}])([${_cjk}])');
+      RegExp('\\b([$_a])([$_gradeOperators])([$_cjk])');
 
-  static final RegExp _cjkLessThan = RegExp('([${_cjk}])(<)([${_an}])');
-  static final RegExp _lessThanCjk = RegExp('([${_an}])(<)([${_cjk}])');
-  static final RegExp _cjkGreaterThan = RegExp('([${_cjk}])(>)([${_an}])');
-  static final RegExp _greaterThanCjk = RegExp('([${_an}])(>)([${_cjk}])');
-  static final RegExp _ansLessThanAns = RegExp('([${_an}])(<)([${_an}])');
-  static final RegExp _ansGreaterThanAns = RegExp('([${_an}])(>)([${_an}])');
+  static final RegExp _cjkLessThan = RegExp('([$_cjk])(<)([$_an])');
+  static final RegExp _lessThanCjk = RegExp('([$_an])(<)([$_cjk])');
+  static final RegExp _cjkGreaterThan = RegExp('([$_cjk])(>)([$_an])');
+  static final RegExp _greaterThanCjk = RegExp('([$_an])(>)([$_cjk])');
+  static final RegExp _ansLessThanAns = RegExp('([$_an])(<)([$_an])');
+  static final RegExp _ansGreaterThanAns = RegExp('([$_an])(>)([$_an])');
 
   static final RegExp _cjkLeftBracket =
-      RegExp('([${_cjk}])([${_leftBracketsExtended}])');
+      RegExp('([$_cjk])([$_leftBracketsExtended])');
   static final RegExp _rightBracketCjk =
-      RegExp('([${_rightBracketsExtended}])([${_cjk}])');
+      RegExp('([$_rightBracketsExtended])([$_cjk])');
   static final RegExp _ansCjkLeftBracketAnyRightBracket = RegExp(
-    '([${_an}${_cjk}])[ ]*([\u201c])([${_an}${_cjk}\\-_ ]+)([\u201d])',
+    '([$_an$_cjk])[ ]*([\u201c])([$_an$_cjk\\-_ ]+)([\u201d])',
   );
   static final RegExp _leftBracketAnyRightBracketAnsCjk = RegExp(
-    '([\u201c])([${_an}${_cjk}\\-_ ]+)([\u201d])[ ]*([${_an}${_cjk}])',
+    '([\u201c])([$_an$_cjk\\-_ ]+)([\u201d])[ ]*([$_an$_cjk])',
   );
 
   static final RegExp _rightBracketAn =
-      RegExp('([${_rightBracketsBasic}])([${_an}])');
+      RegExp('([$_rightBracketsBasic])([$_an])');
   static final RegExp _anLeftBracket =
-      RegExp('([${_an}])([${_leftBracketsBasic}])');
-  static final RegExp _anCharsOnly = RegExp('^[${_an}]*\$');
+      RegExp('([$_an])([$_leftBracketsBasic])');
+  static final RegExp _anCharsOnly = RegExp('^[$_an]*\$');
 
   static final RegExp _cjkUnixAbsoluteFilePath = RegExp(
-    '([${_cjk}])(${_unixAbsoluteFilePath.pattern})',
+    '([$_cjk])(${_unixAbsoluteFilePath.pattern})',
   );
   static final RegExp _cjkUnixRelativeFilePath = RegExp(
-    '([${_cjk}])(${_unixRelativeFilePath.pattern})',
+    '([$_cjk])(${_unixRelativeFilePath.pattern})',
   );
   static final RegExp _cjkWindowsPath = RegExp(
-    '([${_cjk}])(${_windowsFilePath.pattern})',
+    '([$_cjk])(${_windowsFilePath.pattern})',
   );
 
   static final RegExp _unixAbsoluteFilePathSlashCjk = RegExp(
-    '(${_unixAbsoluteFilePath.pattern}/)([${_cjk}])',
+    '(${_unixAbsoluteFilePath.pattern}/)([$_cjk])',
   );
   static final RegExp _unixRelativeFilePathSlashCjk = RegExp(
-    '(${_unixRelativeFilePath.pattern}/)([${_cjk}])',
+    '(${_unixRelativeFilePath.pattern}/)([$_cjk])',
   );
 
-  static final RegExp _cjkAns = RegExp('([${_cjk}])([${_ansCjkAfter}])');
-  static final RegExp _ansCjk = RegExp('([${_ansBeforeCjk}])([${_cjk}])');
+  static final RegExp _cjkAns = RegExp('([$_cjk])([$_ansCjkAfter])');
+  static final RegExp _ansCjk = RegExp('([$_ansBeforeCjk])([$_cjk])');
 
-  static final RegExp _sA = RegExp('(%)([${_a}])');
+  static final RegExp _sA = RegExp('(%)([$_a])');
   static final RegExp _middleDot = RegExp('([ ]*)([\u00b7\u2022\u2027])([ ]*)');
 
   String _replaceWithGroups(String input, RegExp pattern, String replacement) {
@@ -234,7 +234,7 @@ class Pangu {
         _PlaceholderReplacer('BACKTICK_CONTENT_', '\uE004', '\uE005');
     newText = newText.replaceAllMapped(RegExp('`([^`]+)`'), (match) {
       final content = match.group(1) ?? '';
-      return '`' + backtickManager.store(content) + '`';
+      return '`${backtickManager.store(content)}`';
     });
 
     // 保护 Markdown 链接/图片
@@ -300,7 +300,7 @@ class Pangu {
 
     final singleQuoteCjkManager =
         _PlaceholderReplacer('SINGLE_QUOTE_CJK_PLACEHOLDER_', '\uE030', '\uE031');
-    final singleQuotePureCjk = RegExp('(\')([${_cjk}]+)(\')');
+    final singleQuotePureCjk = RegExp('(\')([$_cjk]+)(\')');
     newText = newText.replaceAllMapped(singleQuotePureCjk, (match) {
       return singleQuoteCjkManager.store(match.group(0) ?? '');
     });
@@ -325,7 +325,7 @@ class Pangu {
       }
       newText = _replaceWithGroups(
         newText,
-        RegExp('([^/])([${_cjk}])(#[A-Za-z0-9]+)\$'),
+        RegExp('([^/])([$_cjk])(#[A-Za-z0-9]+)\$'),
         r'$1$2 $3',
       );
     }

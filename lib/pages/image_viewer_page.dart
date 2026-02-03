@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:extended_image_lite/extended_image_lite.dart';
 import 'package:gal/gal.dart';
@@ -289,7 +288,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
 
       // 分享文件
       final xFile = XFile(file.path, mimeType: 'image/${_getExtensionFromUrl(imageUrl)}');
-      await Share.shareXFiles([xFile], text: imageUrl);
+      await SharePlus.instance.share(ShareParams(files: [xFile], text: imageUrl));
     } catch (e) {
       debugPrint('Share image error: $e');
       if (mounted) {

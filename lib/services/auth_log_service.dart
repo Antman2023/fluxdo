@@ -141,10 +141,10 @@ class AuthLogService {
     
     try {
       if (await _logFile!.exists()) {
-        await Share.shareXFiles(
-          [XFile(_logFile!.path)],
+        await SharePlus.instance.share(ShareParams(
+          files: [XFile(_logFile!.path)],
           subject: '认证日志',
-        );
+        ));
       }
     } catch (e) {
       debugPrint('[AuthLogService] 分享日志失败: $e');
@@ -181,9 +181,7 @@ class FileOutput extends LogOutput {
 
   @override
   void output(OutputEvent event) {
-    if (_sink == null) {
-      _sink = file.openWrite(mode: FileMode.append);
-    }
+    _sink ??= file.openWrite(mode: FileMode.append);
     for (var line in event.lines) {
       _sink?.writeln(line);
     }

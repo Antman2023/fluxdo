@@ -245,7 +245,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
                       child: Container(
                         height: 40,
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -549,7 +549,7 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha:0.2),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),

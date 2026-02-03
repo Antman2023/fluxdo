@@ -179,7 +179,7 @@ class DiscourseWidgetFactory extends WidgetFactory {
               width: displayWidth,
               height: displayHeight,
               alignment: Alignment.center,
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha:0.2),
               child: const SizedBox(
                 width: 24,
                 height: 24,
@@ -357,7 +357,7 @@ class DiscourseWidgetFactory extends WidgetFactory {
 
   /// 从 SVG 内容解析尺寸属性
   double? _parseSvgDimension(String svg, String attr) {
-    final match = RegExp('$attr="(\d+(?:\.\d+)?)"').firstMatch(svg);
+    final match = RegExp('$attr="(d+(?:.d+)?)"').firstMatch(svg);
     if (match != null) return double.tryParse(match.group(1)!);
     return null;
   }

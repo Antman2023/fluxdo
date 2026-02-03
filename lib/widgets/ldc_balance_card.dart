@@ -32,7 +32,7 @@ class LdcBalanceCard extends ConsumerWidget {
         color: theme.colorScheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
         ),
         margin: EdgeInsets.zero,
         child: Padding(
@@ -74,7 +74,7 @@ class LdcBalanceCard extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.secondaryContainer.withOpacity(0.5),
+                  color: theme.colorScheme.secondaryContainer.withValues(alpha:0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -111,7 +111,7 @@ class LdcBalanceCard extends ConsumerWidget {
       ),
       child: Card(
         elevation: 8,
-        shadowColor: theme.colorScheme.primary.withOpacity(0.3),
+        shadowColor: theme.colorScheme.primary.withValues(alpha:0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
         ),
@@ -137,7 +137,7 @@ class LdcBalanceCard extends ConsumerWidget {
               child: Icon(
                 Icons.account_balance_wallet_rounded,
                 size: 150,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha:0.1),
               ),
             ),
             Padding(
@@ -150,7 +150,7 @@ class LdcBalanceCard extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha:0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -163,7 +163,7 @@ class LdcBalanceCard extends ConsumerWidget {
                       Text(
                         'LINUX DO Credits',
                         style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha:0.9),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -185,7 +185,7 @@ class LdcBalanceCard extends ConsumerWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha:0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -200,7 +200,7 @@ class LdcBalanceCard extends ConsumerWidget {
                         Text(
                           '今日收入 ${userInfo.dailyIncome}',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha:0.9),
                             fontWeight: FontWeight.w500,
                           ),
                         ),

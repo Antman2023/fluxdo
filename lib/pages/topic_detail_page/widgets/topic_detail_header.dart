@@ -57,7 +57,7 @@ class TopicDetailHeader extends ConsumerWidget {
         color: theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+            color: theme.colorScheme.outlineVariant.withValues(alpha:0.3),
             width: 0.5,
           ),
         ),
@@ -125,10 +125,10 @@ class TopicDetailHeader extends ConsumerWidget {
                   ...detail.tags!.map((tag) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                        color: theme.colorScheme.outlineVariant.withValues(alpha:0.3),
                         width: 0.5,
                       ),
                     ),
@@ -205,13 +205,13 @@ class TopicDetailHeader extends ConsumerWidget {
         Icon(
           icon,
           size: 14,
-          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.7),
         ),
         const SizedBox(width: 4),
         Text(
           text,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.8),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -220,7 +220,7 @@ class TopicDetailHeader extends ConsumerWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.5),
             ),
           ),
         ],
@@ -239,10 +239,10 @@ class TopicDetailHeader extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: categoryColor.withOpacity(0.08),
+        color: categoryColor.withValues(alpha:0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: categoryColor.withOpacity(0.2),
+          color: categoryColor.withValues(alpha:0.2),
           width: 0.5,
         ),
       ),

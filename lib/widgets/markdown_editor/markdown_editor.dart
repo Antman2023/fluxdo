@@ -208,7 +208,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         final cursor = selection.start.clamp(0, currentText.length);
         final prefix = currentText.substring(0, cursor);
         final newCursor = _pangu.spacingText(prefix).length;
-        final clampedCursor = newCursor.clamp(0, panguText.length) as int;
+        final clampedCursor = newCursor.clamp(0, panguText.length);
         widget.controller.value = TextEditingValue(
           text: panguText,
           selection: TextSelection.collapsed(offset: clampedCursor),
@@ -266,7 +266,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     final cursor = selection.start.clamp(0, currentText.length);
     final prefix = currentText.substring(0, cursor);
     final newCursor = _pangu.spacingText(prefix).length;
-    final clampedCursor = newCursor.clamp(0, spacedText.length) as int;
+    final clampedCursor = newCursor.clamp(0, spacedText.length);
     widget.controller.value = TextEditingValue(
       text: spacedText,
       selection: TextSelection.collapsed(offset: clampedCursor),

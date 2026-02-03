@@ -63,13 +63,13 @@ class TopicCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       clipBehavior: Clip.antiAlias,
       elevation: isSelected ? 0 : 0,
-      color: isSelected ? theme.colorScheme.primaryContainer.withOpacity(0.4) : null,
+      color: isSelected ? theme.colorScheme.primaryContainer.withValues(alpha:0.4) : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: isSelected
-              ? theme.colorScheme.primary.withOpacity(0.5)
-              : theme.colorScheme.outlineVariant.withOpacity(0.5),
+              ? theme.colorScheme.primary.withValues(alpha:0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha:0.5),
           width: 1,
         ),
       ),
@@ -196,10 +196,10 @@ class TopicCard extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: _parseColor(category.color).withOpacity(0.08),
+                              color: _parseColor(category.color).withValues(alpha:0.08),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: _parseColor(category.color).withOpacity(0.2),
+                                color: _parseColor(category.color).withValues(alpha:0.2),
                                 width: 1,
                               ),
                             ),
@@ -212,7 +212,7 @@ class TopicCard extends ConsumerWidget {
                                     child: FaIcon(
                                       faIcon,
                                       size: 10,
-                                      color: _parseColor(category!.color),
+                                      color: _parseColor(category.color),
                                     ),
                                   )
                                 else if (logoUrl != null && logoUrl.isNotEmpty)
@@ -226,13 +226,13 @@ class TopicCard extends ConsumerWidget {
                                     height: 10,
                                     fit: BoxFit.contain,
                                     errorBuilder: (context, error, stackTrace) {
-                                      return _buildCategoryDot(category!);
+                                      return _buildCategoryDot(category);
                                     },
                                   )
-                                else if (category!.readRestricted)
+                                else if (category.readRestricted)
                                   _buildCategoryLock(theme, category)
                                 else
-                                  _buildCategoryDot(category!),
+                                  _buildCategoryDot(category),
                                 const SizedBox(width: 4),
                                 Text(
                                   category.name,
@@ -250,7 +250,7 @@ class TopicCard extends ConsumerWidget {
                         ...topic.tags.map((tag) => Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -300,7 +300,7 @@ class TopicCard extends ConsumerWidget {
                     Text(
                       TimeUtils.formatRelativeTime(topic.lastPostedAt),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.7),
                       ),
                     ),
                   ],
@@ -443,14 +443,14 @@ class CompactTopicCard extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       elevation: isSelected ? 0 : 0,
       color: isSelected
-          ? theme.colorScheme.primaryContainer.withOpacity(0.4)
-          : theme.colorScheme.surfaceContainerLow.withOpacity(0.5),
+          ? theme.colorScheme.primaryContainer.withValues(alpha:0.4)
+          : theme.colorScheme.surfaceContainerLow.withValues(alpha:0.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: isSelected
-              ? theme.colorScheme.primary.withOpacity(0.5)
-              : theme.colorScheme.outlineVariant.withOpacity(0.4),
+              ? theme.colorScheme.primary.withValues(alpha:0.5)
+              : theme.colorScheme.outlineVariant.withValues(alpha:0.4),
           width: 1,
         ),
       ),
@@ -475,7 +475,7 @@ class CompactTopicCard extends ConsumerWidget {
                   FaIcon(
                     faIcon,
                     size: 12,
-                    color: _parseColor(category!.color),
+                    color: _parseColor(category.color),
                   )
                 else if (logoUrl != null && logoUrl.isNotEmpty)
                   Image(
@@ -488,11 +488,11 @@ class CompactTopicCard extends ConsumerWidget {
                     height: 12,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
-                      return _buildCategoryDot(category!);
+                      return _buildCategoryDot(category);
                     },
                   )
                 else
-                  _buildCategoryDot(category!),
+                  _buildCategoryDot(category),
                 const SizedBox(width: 8),
               ],
 
@@ -559,7 +559,7 @@ class CompactTopicCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer.withOpacity(0.7),
+                    color: theme.colorScheme.primaryContainer.withValues(alpha:0.7),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -574,12 +574,12 @@ class CompactTopicCard extends ConsumerWidget {
               else if (topic.postsCount > 1)
                  Row(
                    children: [
-                     Icon(Icons.chat_bubble_outline_rounded, size: 12, color: theme.colorScheme.outline.withOpacity(0.7)),
+                     Icon(Icons.chat_bubble_outline_rounded, size: 12, color: theme.colorScheme.outline.withValues(alpha:0.7)),
                      const SizedBox(width: 2),
                      Text(
                         '${topic.postsCount - 1}',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.outline.withOpacity(0.7),
+                          color: theme.colorScheme.outline.withValues(alpha:0.7),
                           fontSize: 10,
                         ),
                      ),

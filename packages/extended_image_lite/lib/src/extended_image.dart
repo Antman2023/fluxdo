@@ -17,7 +17,7 @@ import 'utils.dart';
 /// extended image lite - simplified version without editor support
 class ExtendedImage extends StatefulWidget {
   ExtendedImage({
-    Key? key,
+    super.key,
     required this.image,
     this.semanticLabel,
     this.excludeFromSemantics = false,
@@ -58,12 +58,11 @@ class ExtendedImage extends StatefulWidget {
            (width != null || height != null)
                ? constraints?.tighten(width: width, height: height) ??
                    BoxConstraints.tightFor(width: width, height: height)
-               : constraints,
-       super(key: key);
+               : constraints;
 
   ExtendedImage.asset(
     String name, {
-    Key? key,
+    super.key,
     AssetBundle? bundle,
     this.semanticLabel,
     this.excludeFromSemantics = false,
@@ -138,12 +137,11 @@ class ExtendedImage extends StatefulWidget {
                ? constraints?.tighten(width: width, height: height) ??
                    BoxConstraints.tightFor(width: width, height: height)
                : constraints,
-       handleLoadingProgress = false,
-       super(key: key);
+       handleLoadingProgress = false;
 
   ExtendedImage.file(
     File file, {
-    Key? key,
+    super.key,
     double scale = 1.0,
     this.semanticLabel,
     this.excludeFromSemantics = false,
@@ -209,12 +207,11 @@ class ExtendedImage extends StatefulWidget {
                ? constraints?.tighten(width: width, height: height) ??
                    BoxConstraints.tightFor(width: width, height: height)
                : constraints,
-       handleLoadingProgress = false,
-       super(key: key);
+       handleLoadingProgress = false;
 
   ExtendedImage.memory(
     Uint8List bytes, {
-    Key? key,
+    super.key,
     double scale = 1.0,
     this.semanticLabel,
     this.excludeFromSemantics = false,
@@ -276,12 +273,11 @@ class ExtendedImage extends StatefulWidget {
                ? constraints?.tighten(width: width, height: height) ??
                    BoxConstraints.tightFor(width: width, height: height)
                : constraints,
-       handleLoadingProgress = false,
-       super(key: key);
+       handleLoadingProgress = false;
 
   ExtendedImage.network(
     String url, {
-    Key? key,
+    super.key,
     this.semanticLabel,
     this.excludeFromSemantics = false,
     this.width,
@@ -365,8 +361,7 @@ class ExtendedImage extends StatefulWidget {
            (width != null || height != null)
                ? constraints?.tighten(width: width, height: height) ??
                    BoxConstraints.tightFor(width: width, height: height)
-               : constraints,
-       super(key: key);
+               : constraints;
 
   final Key? extendedImageGestureKey;
   final bool handleLoadingProgress;
@@ -405,7 +400,7 @@ class ExtendedImage extends StatefulWidget {
   final EdgeInsets layoutInsets;
 
   @override
-  _ExtendedImageState createState() => _ExtendedImageState();
+  State<ExtendedImage> createState() => _ExtendedImageState();
 
   static Widget Function(BuildContext context, ExtendedImageState state)
   globalStateWidgetBuilder = (BuildContext context, ExtendedImageState state) {
@@ -527,14 +522,14 @@ class _ExtendedImageState extends State<ExtendedImage>
     if (widget.shape != null) {
       switch (widget.shape!) {
         case BoxShape.circle:
-          current = ClipOval(child: current, clipBehavior: widget.clipBehavior);
+          current = ClipOval(clipBehavior: widget.clipBehavior, child: current);
           break;
         case BoxShape.rectangle:
           if (widget.borderRadius != null) {
             current = ClipRRect(
-              child: current,
               borderRadius: widget.borderRadius!,
               clipBehavior: widget.clipBehavior,
+              child: current,
             );
           }
           break;
@@ -563,9 +558,9 @@ class _ExtendedImageState extends State<ExtendedImage>
         !(_loadState == LoadState.completed &&
             widget.mode == ExtendedImageMode.gesture)) {
       current = ExtendedImageSlidePageHandler(
-        child: current,
         extendedImageSlidePageState: _slidePageState,
         heroBuilderForSlidingPage: widget.heroBuilderForSlidingPage,
+        child: current,
       );
     }
 

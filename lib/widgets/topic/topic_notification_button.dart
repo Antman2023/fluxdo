@@ -65,7 +65,7 @@ class TopicNotificationButton extends StatelessWidget {
     // 适配 AI 摘要按钮风格
     final bgColor = isWatching 
         ? theme.colorScheme.primaryContainer 
-        : theme.colorScheme.primaryContainer.withOpacity(0.3);
+        : theme.colorScheme.primaryContainer.withValues(alpha:0.3);
     
     final fgColor = isWatching 
         ? theme.colorScheme.primary 

@@ -122,7 +122,7 @@ class _LazyImageState extends State<LazyImage> {
           height: widget.height ?? 200,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.2),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: SizedBox(
@@ -143,7 +143,7 @@ class _LazyImageState extends State<LazyImage> {
           height: widget.height ?? 200,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.2),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(

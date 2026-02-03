@@ -1,4 +1,5 @@
 /// MessageBus 相关数据模型
+library;
 
 /// 正在输入的用户信息
 class TypingUser {

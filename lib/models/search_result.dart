@@ -1,4 +1,4 @@
-/// 搜索结果数据模型
+// 搜索结果数据模型
 import '../constants.dart';
 import '../utils/time_utils.dart';
 import 'topic.dart';

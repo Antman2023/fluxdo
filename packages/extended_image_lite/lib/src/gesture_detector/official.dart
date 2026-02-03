@@ -1,4 +1,4 @@
-// ignore_for_file: overridden_fields, unused_element_parameter
+// ignore_for_file: overridden_fields, unused_element_parameter, library_private_types_in_public_api
 
 import 'dart:math';
 

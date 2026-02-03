@@ -201,11 +201,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget _buildError(ThemeData theme, String error) {
     return Card(
       elevation: 0,
-      color: theme.colorScheme.errorContainer.withOpacity(0.3),
+      color: theme.colorScheme.errorContainer.withValues(alpha:0.3),
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.error.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.error.withValues(alpha:0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -232,7 +232,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       margin: EdgeInsets.zero,
       child: Padding(
@@ -257,7 +257,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Container(
       height: 20,
       width: 1,
-      color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+      color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
     );
   }
 
@@ -292,7 +292,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
@@ -346,7 +346,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
@@ -406,7 +406,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: finalIconColor.withOpacity(0.1),
+                      color: finalIconColor.withValues(alpha:0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(icon, color: finalIconColor, size: 20),
@@ -423,7 +423,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   ),
                   Icon(
                     Icons.chevron_right_rounded, 
-                    color: theme.colorScheme.outline.withOpacity(0.4), 
+                    color: theme.colorScheme.outline.withValues(alpha:0.4), 
                     size: 20
                   ),
                 ],
@@ -435,7 +435,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 child: Divider(
                   height: 1, 
                   thickness: 0.5,
-                  color: theme.colorScheme.outlineVariant.withOpacity(0.2)
+                  color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)
                 ),
               ),
           ],
@@ -449,11 +449,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       return Center(
         child: TextButton.icon(
           onPressed: _logout,
-          icon: Icon(Icons.logout_rounded, size: 18, color: theme.colorScheme.error.withOpacity(0.8)),
-          label: Text('退出当前账号', style: TextStyle(color: theme.colorScheme.error.withOpacity(0.8), fontWeight: FontWeight.w600)),
+          icon: Icon(Icons.logout_rounded, size: 18, color: theme.colorScheme.error.withValues(alpha:0.8)),
+          label: Text('退出当前账号', style: TextStyle(color: theme.colorScheme.error.withValues(alpha:0.8), fontWeight: FontWeight.w600)),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            backgroundColor: theme.colorScheme.errorContainer.withOpacity(0.1),
+            backgroundColor: theme.colorScheme.errorContainer.withValues(alpha:0.1),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           ),
         ),
@@ -766,7 +766,7 @@ Widget _buildStatusEmoji(UserStatus status) {
       width: 14,
       height: 14,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      errorBuilder: (_, _, _) => const SizedBox.shrink(),
     );
   }
 
@@ -787,9 +787,9 @@ Widget _buildStatusChip(UserStatus status, ThemeData theme) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(
-      color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
+      border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha:0.5)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,

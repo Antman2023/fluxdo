@@ -165,13 +165,14 @@ void paintExtendedImage({
         rect,
         destinationRect,
         repeat,
-      ))
+      )) {
         canvas.drawImageNine(
           image,
           _scaleRect(centerSlice, scale),
           _scaleRect(tileRect, scale),
           paint,
         );
+      }
     }
   }
 

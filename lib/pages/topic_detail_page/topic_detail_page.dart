@@ -109,7 +109,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     _screenTrack = ScreenTrack(
       DiscourseService(),
       onTimingsSent: (topicId, postNumbers, highestSeen) {
-        print('[TopicDetail] onTimingsSent callback triggered: topicId=$topicId, highestSeen=$highestSeen');
+        debugPrint('[TopicDetail] onTimingsSent callback triggered: topicId=$topicId, highestSeen=$highestSeen');
         ref.read(topicListProvider(TopicListFilter.latest).notifier).updateSeen(topicId, highestSeen);
         ref.read(topicListProvider(TopicListFilter.unread).notifier).updateSeen(topicId, highestSeen);
         // 更新会话已读状态，触发 PostItem 消除未读圆点
@@ -393,7 +393,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       username: username,
       anonymousShare: prefs.anonymousShare,
     );
-    Share.share(url);
+    SharePlus.instance.share(ShareParams(text: url));
   }
 
   Future<void> _openInBrowser() async {
@@ -428,7 +428,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       return;
     }
 
-    print('[TopicDetail] First post not loaded, reloading from post 1');
+    debugPrint('[TopicDetail] First post not loaded, reloading from post 1');
     _scrollController.prepareJumpToPost(1);
     _highlightController.skipNextJumpHighlight = false;
 
@@ -446,7 +446,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     final notifier = ref.read(topicDetailProvider(params).notifier);
 
     if (postIndex == -1) {
-      print('[TopicDetail] Post $postNumber not in list, reloading with new postNumber');
+      debugPrint('[TopicDetail] Post $postNumber not in list, reloading with new postNumber');
       _scrollController.prepareJumpToPost(postNumber);
       _highlightController.skipNextJumpHighlight = false;
 
@@ -533,20 +533,20 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       return;
     }
 
-    print('[TopicDetail] Post ID $postId not in loaded posts, fetching post info...');
+    debugPrint('[TopicDetail] Post ID $postId not in loaded posts, fetching post info...');
 
     try {
       final service = DiscourseService();
       final postStream = await service.getPosts(widget.topicId, [postId]);
 
       if (postStream.posts.isEmpty) {
-        print('[TopicDetail] Failed to fetch post $postId');
+        debugPrint('[TopicDetail] Failed to fetch post $postId');
         return;
       }
 
       final targetPost = postStream.posts.first;
       final realPostNumber = targetPost.postNumber;
-      print('[TopicDetail] Got real post_number: $realPostNumber for post ID $postId');
+      debugPrint('[TopicDetail] Got real post_number: $realPostNumber for post ID $postId');
 
       _scrollController.prepareJumpToPost(realPostNumber);
       _highlightController.skipNextJumpHighlight = false;
@@ -560,7 +560,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
         await notifier.reloadWithPostNumber(realPostNumber);
       }
     } catch (e) {
-      print('[TopicDetail] Error fetching post $postId: $e');
+      debugPrint('[TopicDetail] Error fetching post $postId: $e');
     }
   }
 
@@ -698,7 +698,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
           }
         }
       } catch (e, stack) {
-        print('[TopicDetail] Scroll error: $e\n$stack');
+        debugPrint('[TopicDetail] Scroll error: $e\n$stack');
       } finally {
         if (mounted && !_scrollController.isPositioned) {
           _scrollController.markPositioned();
@@ -868,7 +868,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
             elevation: currentElevation,
             scrolledUnderElevation: currentElevation,
             shadowColor: Colors.transparent,
-            surfaceTintColor: theme.colorScheme.surfaceTint.withOpacity((1.0 - expandProgress).clamp(0.0, 1.0)),
+            surfaceTintColor: theme.colorScheme.surfaceTint.withValues(alpha:(1.0 - expandProgress).clamp(0.0, 1.0)),
             backgroundColor: theme.colorScheme.surface,
             title: _buildAppBarTitle(
               theme: theme,
@@ -1030,7 +1030,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     final isLoggedIn = ref.watch(currentUserProvider).value != null;
     final canShowDetailPane = MasterDetailLayout.canShowBothPanesFor(context);
 
-    ref.listen<AsyncValue<void>>(authStateProvider, (_, __) {
+    ref.listen<AsyncValue<void>>(authStateProvider, (_, _) {
       if (!mounted) return;
       final stillLoggedIn = ref.read(currentUserProvider).value != null;
       if (!stillLoggedIn && _visibilityTracker.trackEnabled) {
@@ -1048,7 +1048,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     // 监听 MessageBus 新回复通知
     ref.listen(topicChannelProvider(widget.topicId), (previous, next) {
       if (next.hasNewReplies && !(previous?.hasNewReplies ?? false)) {
-        print('[TopicDetail] New replies detected via MessageBus, loading...');
+        debugPrint('[TopicDetail] New replies detected via MessageBus, loading...');
         notifier.loadNewReplies();
       }
 

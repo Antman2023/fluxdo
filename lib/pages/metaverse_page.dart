@@ -145,7 +145,7 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
             ),
             child: ListTile(
               onTap: _isProcessing ? null : () => _toggleLdc(false),
@@ -184,7 +184,7 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
       ),
       child: InkWell(
         onTap: _isProcessing ? null : () => _toggleLdc(true),
@@ -253,12 +253,12 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
   Widget _buildComingSoonItem(ThemeData theme) {
     return Card(
       elevation: 0,
-      color: theme.colorScheme.surfaceContainerLow.withOpacity(0.5),
+      color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.2), 
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
           style: BorderStyle.solid
         ),
       ),

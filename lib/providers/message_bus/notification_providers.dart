@@ -22,9 +22,9 @@ class NotificationCountNotifier extends Notifier<NotificationCountState> {
       return const NotificationCountState();
     }
     final initial = NotificationCountState(
-      allUnread: user?.allUnreadNotificationsCount ?? 0,
-      unread: user?.unreadNotifications ?? 0,
-      highPriority: user?.unreadHighPriorityNotifications ?? 0,
+      allUnread: user.allUnreadNotificationsCount,
+      unread: user.unreadNotifications,
+      highPriority: user.unreadHighPriorityNotifications,
     );
     if (_hasLiveUpdate && _lastState != null) {
       return _lastState!;

@@ -197,7 +197,7 @@ Widget _buildReactionChip(ThemeData theme, _ChatReaction reaction) {
           reaction.emojiUrl,
           width: 16,
           height: 16,
-          errorBuilder: (_, __, ___) => const SizedBox(width: 16, height: 16),
+          errorBuilder: (_, _, _) => const SizedBox(width: 16, height: 16),
         ),
         if (reaction.count > 1) ...[
           const SizedBox(width: 3),

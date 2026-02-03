@@ -92,7 +92,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
 
   Future<void> setSeedColor(Color color) async {
     state = state.copyWith(seedColor: color, useDynamicColor: false);
-    await _prefs.setInt(_seedColorKey, color.value);
+    await _prefs.setInt(_seedColorKey, color.toARGB32());
     await _prefs.setBool(_dynamicColorKey, false);
   }
 

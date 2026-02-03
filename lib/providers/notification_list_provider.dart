@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/notification.dart';
 import 'core_providers.dart';
@@ -35,7 +36,7 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
       _totalRows = response.totalRowsNotifications;
       state = AsyncValue.data(response.notifications);
     } catch (e) {
-      print('Silent refresh notifications failed: $e');
+      debugPrint('Silent refresh notifications failed: $e');
     }
   }
 
@@ -43,6 +44,7 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
   Future<void> loadMore() async {
     if (!hasMore || state.isLoading) return;
     
+    // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<DiscourseNotification>>().copyWithPrevious(state);
     
     state = await AsyncValue.guard(() async {

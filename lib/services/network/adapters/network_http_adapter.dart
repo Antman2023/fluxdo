@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:dio/src/redirect_record.dart';
 import 'package:flutter/services.dart';
 
 import '../../network_logger.dart';

@@ -156,7 +156,7 @@ class _TopicVoteButtonState extends ConsumerState<TopicVoteButton> {
             boxShadow: _userVoted
                 ? [
                     BoxShadow(
-                      color: theme.colorScheme.primary.withOpacity(0.2),
+                      color: theme.colorScheme.primary.withValues(alpha:0.2),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     )
@@ -205,8 +205,8 @@ class _TopicVoteButtonState extends ConsumerState<TopicVoteButton> {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: _userVoted
-                        ? theme.colorScheme.onPrimary.withOpacity(0.2)
-                        : theme.colorScheme.primary.withOpacity(0.1),
+                        ? theme.colorScheme.onPrimary.withValues(alpha:0.2)
+                        : theme.colorScheme.primary.withValues(alpha:0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,

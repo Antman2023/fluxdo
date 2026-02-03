@@ -32,10 +32,9 @@ class Inertia2DSimulation extends Simulation {
     required this.maxX,
     required this.minY,
     required this.maxY,
-    Tolerance tolerance = Tolerance.defaultTolerance,
+    super.tolerance,
   }) : _xSim = FrictionSimulation(friction, startPosition.dx, velocity.dx),
-       _ySim = FrictionSimulation(friction, startPosition.dy, velocity.dy),
-       super(tolerance: tolerance);
+       _ySim = FrictionSimulation(friction, startPosition.dy, velocity.dy);
 
   final Offset startPosition;
   final FrictionSimulation _xSim;

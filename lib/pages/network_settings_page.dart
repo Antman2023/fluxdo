@@ -154,7 +154,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       child: Column(
         children: [
@@ -173,7 +173,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                 );
               },
             ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
           ListTile(
             leading: const Icon(Icons.security),
             title: const Text('Cloudflare 验证'),
@@ -199,14 +199,14 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
     return Card(
       elevation: 0,
       color: settings.dohEnabled
-          ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+          ? theme.colorScheme.primaryContainer.withValues(alpha:0.3)
           : theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: settings.dohEnabled
-              ? theme.colorScheme.primary.withOpacity(0.3)
-              : theme.colorScheme.outlineVariant.withOpacity(0.2),
+              ? theme.colorScheme.primary.withValues(alpha:0.3)
+              : theme.colorScheme.outlineVariant.withValues(alpha:0.2),
         ),
       ),
       child: Column(
@@ -224,7 +224,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
             onChanged: (value) => _service.setDohEnabled(value),
           ),
           if (settings.dohEnabled) ...[
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
@@ -301,7 +301,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   ],
                 ),
               ),
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             SwitchListTile(
               title: const Text('IPv6 优先'),
               subtitle: const Text('优先尝试 IPv6，失败自动回落 IPv4'),
@@ -328,7 +328,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       key: key,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -358,22 +358,28 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (int i = 0; i < servers.length; i++) ...[
-            _buildServerTile(theme, servers[i], settings),
-            if (i != servers.length - 1)
-              Divider(height: 1, indent: 56, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+      child: RadioGroup<String>(
+        groupValue: settings.selectedServerUrl,
+        onChanged: (value) {
+          if (value != null) _service.setSelectedServer(value);
+        },
+        child: Column(
+          children: [
+            for (int i = 0; i < servers.length; i++) ...[
+              _buildServerTile(theme, servers[i], settings),
+              if (i != servers.length - 1)
+                Divider(height: 1, indent: 56, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
+            ],
+            if (servers.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('暂无服务器'),
+              ),
           ],
-          if (servers.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('暂无服务器'),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -387,10 +393,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       contentPadding: const EdgeInsets.only(left: 8, right: 12),
       leading: Radio<String>(
         value: server.url,
-        groupValue: settings.selectedServerUrl,
-        onChanged: (value) {
-          if (value != null) _service.setSelectedServer(value);
-        },
       ),
       title: Row(
         children: [
@@ -497,7 +499,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       child: Column(
         children: [
@@ -507,14 +509,14 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: _showLogSheet,
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
           ListTile(
             leading: const Icon(Icons.share_outlined),
             title: const Text('分享日志'),
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: _shareLogs,
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
           ListTile(
             leading: Icon(Icons.delete_sweep_outlined, color: theme.colorScheme.error),
             title: Text('清除日志', style: TextStyle(color: theme.colorScheme.error)),
@@ -523,7 +525,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
           ),
           // CF 验证日志（开发者模式）
           if (_isDeveloperMode) ...[
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             ListTile(
               leading: const Icon(Icons.bug_report_outlined),
               title: const Text('CF 验证日志'),
@@ -531,14 +533,14 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               trailing: const Icon(Icons.chevron_right, size: 20),
               onTap: _showCfChallengeLogSheet,
             ),
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             ListTile(
               leading: const Icon(Icons.share_outlined),
               title: const Text('导出 CF 日志'),
               trailing: const Icon(Icons.chevron_right, size: 20),
               onTap: _shareCfChallengeLogs,
             ),
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             ListTile(
               leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
               title: Text('清除 CF 日志', style: TextStyle(color: theme.colorScheme.error)),
@@ -555,7 +557,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -770,7 +772,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -846,7 +848,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
           Icon(
             Icons.article_outlined,
             size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -879,9 +881,9 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
 
     final path = await NetworkLogger.getLogPath();
     if (path != null) {
-      await Share.shareXFiles([XFile(path)], subject: 'DOH 调试日志');
+      await SharePlus.instance.share(ShareParams(files: [XFile(path)], subject: 'DOH 调试日志'));
     } else {
-      await Share.share(logs, subject: 'DOH 调试日志');
+      await SharePlus.instance.share(ShareParams(text: logs, subject: 'DOH 调试日志'));
     }
   }
 
@@ -946,7 +948,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1022,7 +1024,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
           Icon(
             Icons.bug_report_outlined,
             size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.3),
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1055,9 +1057,9 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
 
     final path = await CfChallengeLogger.getLogPath();
     if (path != null) {
-      await Share.shareXFiles([XFile(path)], subject: 'CF 验证日志');
+      await SharePlus.instance.share(ShareParams(files: [XFile(path)], subject: 'CF 验证日志'));
     } else {
-      await Share.share(logs, subject: 'CF 验证日志');
+      await SharePlus.instance.share(ShareParams(text: logs, subject: 'CF 验证日志'));
     }
   }
 

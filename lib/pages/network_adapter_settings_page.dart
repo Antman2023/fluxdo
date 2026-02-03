@@ -79,7 +79,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +99,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
           ListTile(
             leading: const Icon(Icons.settings_ethernet),
             title: const Text('适配器类型'),
@@ -126,7 +126,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
       color: theme.colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,7 +146,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
           SwitchListTile(
             secondary: const Icon(Icons.swap_horiz),
             title: const Text('强制使用备用适配器'),
@@ -169,10 +169,10 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
   Widget _buildFallbackStatusCard(ThemeData theme, String? failureReason, CronetFallbackService fallbackService) {
     return Card(
       elevation: 0,
-      color: theme.colorScheme.errorContainer.withOpacity(0.3),
+      color: theme.colorScheme.errorContainer.withValues(alpha:0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.error.withOpacity(0.3)),
+        side: BorderSide(color: theme.colorScheme.error.withValues(alpha:0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,14 +193,14 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.error.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.error.withValues(alpha:0.2)),
           ListTile(
             leading: Icon(Icons.info_outline, color: theme.colorScheme.error),
             title: const Text('已自动降级'),
             subtitle: const Text('检测到 Cronet 不可用，已切换到备用适配器'),
           ),
           if (failureReason != null) ...[
-            Divider(height: 1, indent: 56, color: theme.colorScheme.error.withOpacity(0.2)),
+            Divider(height: 1, indent: 56, color: theme.colorScheme.error.withValues(alpha:0.2)),
             ListTile(
               leading: const Icon(Icons.bug_report),
               title: const Text('查看降级原因'),
@@ -208,7 +208,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
               onTap: () => _showFailureReasonDialog(failureReason),
             ),
           ],
-          Divider(height: 1, indent: 56, color: theme.colorScheme.error.withOpacity(0.2)),
+          Divider(height: 1, indent: 56, color: theme.colorScheme.error.withValues(alpha:0.2)),
           ListTile(
             leading: const Icon(Icons.refresh),
             title: const Text('重置降级状态'),
@@ -224,10 +224,10 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
   Widget _buildTestCard(ThemeData theme, CronetFallbackService fallbackService) {
     return Card(
       elevation: 0,
-      color: theme.colorScheme.tertiaryContainer.withOpacity(0.3),
+      color: theme.colorScheme.tertiaryContainer.withValues(alpha:0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.tertiary.withOpacity(0.3)),
+        side: BorderSide(color: theme.colorScheme.tertiary.withValues(alpha:0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,7 +248,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
               ],
             ),
           ),
-          Divider(height: 1, color: theme.colorScheme.tertiary.withOpacity(0.2)),
+          Divider(height: 1, color: theme.colorScheme.tertiary.withValues(alpha:0.2)),
           ListTile(
             leading: Icon(Icons.bug_report, color: theme.colorScheme.tertiary),
             title: const Text('模拟 Cronet 错误'),
@@ -270,7 +270,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -291,7 +291,7 @@ class _NetworkAdapterSettingsPageState extends State<NetworkAdapterSettingsPage>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

@@ -186,7 +186,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       username: username,
       anonymousShare: prefs.anonymousShare,
     );
-    Share.share(url);
+    SharePlus.instance.share(ShareParams(text: url));
   }
 
   /// 显示用户详细信息弹窗
@@ -217,7 +217,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha:0.1),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -339,7 +339,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha:0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
@@ -361,7 +361,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: isLink ? theme.colorScheme.primary : theme.colorScheme.onSurface,
                       decoration: isLink ? TextDecoration.underline : null,
-                      decorationColor: theme.colorScheme.primary.withOpacity(0.3),
+                      decorationColor: theme.colorScheme.primary.withValues(alpha:0.3),
                     ),
                   ),
                 ],
@@ -371,7 +371,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               Icon(
                 Icons.open_in_new_rounded,
                 size: 16,
-                color: theme.colorScheme.outline.withOpacity(0.5),
+                color: theme.colorScheme.outline.withValues(alpha:0.5),
               ),
           ],
         ),
@@ -596,7 +596,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                   ),
                   fit: BoxFit.cover,
                   alignment: Alignment.center, // 改为居中对齐，收起时上下裁剪，视觉更稳定
-                  errorBuilder: (_, __, ___) => Container(color: Colors.grey[900]),
+                  errorBuilder: (_, _, _) => Container(color: Colors.grey[900]),
                 )
               else
                 Image.asset(
@@ -608,8 +608,8 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               // ===== 层 1: 统一压暗遮罩 - 随向上滑动变得更暗 =====
               Container(
                 color: Color.lerp(
-                  Colors.black.withOpacity(0.6), // 展开状态：默认更暗 (0.6)
-                  Colors.black.withOpacity(0.85), // 收起状态：稍微透一点 (0.85)
+                  Colors.black.withValues(alpha:0.6), // 展开状态：默认更暗 (0.6)
+                  Colors.black.withValues(alpha:0.85), // 收起状态：稍微透一点 (0.85)
                   Curves.easeOut.transform(1.0 - t), // 使用 easeOut 曲线优化滑动体验
                 ),
               ),
@@ -707,7 +707,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                     padding: const EdgeInsets.only(top: 2, bottom: 6),
                                     child: Text(
                                        '@${_user?.username}',
-                                       style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13),
+                                       style: TextStyle(color: Colors.white.withValues(alpha:0.85), fontSize: 13),
                                     ),
                                   )
                                 else
@@ -717,7 +717,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha:0.2),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -749,7 +749,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                           height: 54,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha:0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -761,7 +761,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         textStyle: TextStyle(
-                                          color: Colors.white.withOpacity(0.9),
+                                          color: Colors.white.withValues(alpha:0.9),
                                           fontSize: 14,
                                           height: 1.3,
                                         ),
@@ -771,7 +771,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(0.5),
+                                          color: Colors.white.withValues(alpha:0.5),
                                           fontSize: 14,
                                           height: 1.3,
                                           fontStyle: FontStyle.italic,
@@ -783,7 +783,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                 Icon(
                                   Icons.chevron_right,
                                   size: 16,
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha:0.6),
                                 ),
                               ],
                             ],
@@ -851,7 +851,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha:0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -951,7 +951,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha:0.7),
               fontSize: 12,
             ),
           ),
@@ -983,7 +983,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             ),
             label: Text(_isFollowed ? '已关注' : '关注'),
             style: TextButton.styleFrom(
-              backgroundColor: _isFollowed ? Colors.white.withOpacity(0.15) : Colors.white,
+              backgroundColor: _isFollowed ? Colors.white.withValues(alpha:0.15) : Colors.white,
               foregroundColor: _isFollowed ? Colors.white : Colors.black87,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -1012,7 +1012,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         width: 18,
         height: 18,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+        errorBuilder: (_, _, _) => const SizedBox.shrink(),
       );
     }
 
@@ -1144,7 +1144,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1241,7 +1241,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+          color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1268,7 +1268,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                       image: discourseImageProvider(emojiUrl),
                       width: 20,
                       height: 20,
-                      errorBuilder: (_, __, ___) => const Icon(Icons.emoji_emotions, size: 20),
+                      errorBuilder: (_, _, _) => const Icon(Icons.emoji_emotions, size: 20),
                     )
                   else
                     const Icon(Icons.emoji_emotions, size: 20),

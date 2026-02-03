@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'dart:ffi';
 import 'dart:io';
 
@@ -61,7 +63,7 @@ class DohProxyFfi {
       _initialized = true;
       return true;
     } catch (e) {
-      print('[DOH FFI] Failed to initialize: $e');
+      debugPrint('[DOH FFI] Failed to initialize: $e');
       return false;
     }
   }
@@ -81,7 +83,7 @@ class DohProxyFfi {
         return DynamicLibrary.open('libdoh_proxy.so');
       }
     } catch (e) {
-      print('[DOH FFI] Failed to load library: $e');
+      debugPrint('[DOH FFI] Failed to load library: $e');
     }
     return null;
   }

@@ -287,7 +287,7 @@ class MessageBusService {
         
         final backoffSeconds = min(pow(2, _failureCount).toInt(), _maxBackoffSeconds);
         debugPrint('[MessageBus] 轮询失败: ${e.type}, ${e.message}');
-        debugPrint('[MessageBus] ${backoffSeconds}秒后重试');
+        debugPrint('[MessageBus] $backoffSeconds秒后重试');
         
         await Future.delayed(Duration(seconds: backoffSeconds));
       } catch (e, stack) {
@@ -295,7 +295,7 @@ class MessageBusService {
         final backoffSeconds = min(pow(2, _failureCount).toInt(), _maxBackoffSeconds);
         debugPrint('[MessageBus] 未知错误: $e');
         debugPrint('[MessageBus] $stack');
-        debugPrint('[MessageBus] ${backoffSeconds}秒后重试');
+        debugPrint('[MessageBus] $backoffSeconds秒后重试');
         await Future.delayed(Duration(seconds: backoffSeconds));
       }
     }

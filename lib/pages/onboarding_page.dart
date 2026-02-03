@@ -97,7 +97,7 @@ class _OnboardingPageState extends State<OnboardingPage> with TickerProviderStat
           icon: const Icon(Icons.network_check_rounded),
           tooltip: '网络设置',
           style: IconButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.3),
+            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha:0.3),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: () => Navigator.push(
@@ -154,7 +154,7 @@ class _OnboardingPageState extends State<OnboardingPage> with TickerProviderStat
                 '真诚 · 友善 · 团结 · 专业',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.8),
                   letterSpacing: 2.0,
                   fontWeight: FontWeight.w400,
                   height: 1.5,
@@ -180,7 +180,7 @@ class _OnboardingPageState extends State<OnboardingPage> with TickerProviderStat
                   foregroundColor: theme.colorScheme.onPrimary,
                 ).copyWith(
                   shadowColor: MaterialStateProperty.all(
-                    theme.colorScheme.primary.withOpacity(0.4),
+                    theme.colorScheme.primary.withValues(alpha:0.4),
                   ),
                   elevation: MaterialStateProperty.resolveWith((states) {
                     if (states.contains(MaterialState.pressed)) return 2;
@@ -325,8 +325,8 @@ class _FloatingLogoState extends State<_FloatingLogo> with SingleTickerProviderS
               boxShadow: [
                 BoxShadow(
                   color: isDark 
-                      ? theme.colorScheme.primary.withOpacity(0.3)
-                      : theme.colorScheme.primary.withOpacity(0.2),
+                      ? theme.colorScheme.primary.withValues(alpha:0.3)
+                      : theme.colorScheme.primary.withValues(alpha:0.2),
                   blurRadius: 60,
                   spreadRadius: 20,
                 ),
@@ -389,7 +389,7 @@ class _AmbientBackgroundState extends State<_AmbientBackground> with SingleTicke
             top: -100,
             left: -100,
             child: _AnimatedBlob(
-              color: primary.withOpacity(isDark ? 0.15 : 0.08),
+              color: primary.withValues(alpha:isDark ? 0.15 : 0.08),
               size: 400,
               controller: _controller,
               offset: 0,
@@ -401,7 +401,7 @@ class _AmbientBackgroundState extends State<_AmbientBackground> with SingleTicke
             bottom: -100,
             right: -100,
             child: _AnimatedBlob(
-              color: secondary.withOpacity(isDark ? 0.15 : 0.08),
+              color: secondary.withValues(alpha:isDark ? 0.15 : 0.08),
               size: 350,
               controller: _controller,
               offset: math.pi, // Opposite phase
@@ -412,7 +412,7 @@ class _AmbientBackgroundState extends State<_AmbientBackground> with SingleTicke
           if (isDark)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha:0.2),
               ),
             ),
         ],

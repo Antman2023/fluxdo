@@ -33,6 +33,7 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
   Future<void> loadMore() async {
     if (!_hasMore || state.isLoading) return;
 
+    // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
 
     state = await AsyncValue.guard(() async {
@@ -94,6 +95,7 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
   Future<void> loadMore() async {
     if (!_hasMore || state.isLoading) return;
 
+    // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
 
     state = await AsyncValue.guard(() async {
@@ -155,6 +157,7 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
   Future<void> loadMore() async {
     if (!_hasMore || state.isLoading) return;
 
+    // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
 
     state = await AsyncValue.guard(() async {

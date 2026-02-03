@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Proxy CA certificate management
@@ -40,12 +41,12 @@ class ProxyCertificate {
       context.setTrustedCertificatesBytes(certBytes);
 
       // ignore: avoid_print
-      print('ProxyCertificate: CA certificate loaded successfully');
+      debugPrint('ProxyCertificate: CA certificate loaded successfully');
     } catch (e) {
       // Certificate might already be trusted or file not found
       // This is not fatal - Android uses network_security_config
       // ignore: avoid_print
-      print('ProxyCertificate: Could not load CA certificate: $e');
+      debugPrint('ProxyCertificate: Could not load CA certificate: $e');
     }
   }
 

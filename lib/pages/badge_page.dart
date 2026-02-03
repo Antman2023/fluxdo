@@ -68,7 +68,7 @@ class _BadgePageState extends ConsumerState<BadgePage> {
         });
       }
     } catch (e) {
-      print('Error loading badge detail: $e');
+      debugPrint('Error loading badge detail: $e');
       if (mounted) {
         setState(() {
           _error = e.toString();
@@ -167,7 +167,7 @@ class _BadgePageState extends ConsumerState<BadgePage> {
                                     Icon(
                                       Icons.person_off_outlined,
                                       size: 48,
-                                      color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
@@ -244,7 +244,7 @@ class _BadgePageState extends ConsumerState<BadgePage> {
         width: 100,
         height: 100,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildIconFallback(badge, color, 100),
+        errorBuilder: (_, _, _) => _buildIconFallback(badge, color, 100),
       );
     }
     return _buildIconFallback(badge, color, 100);
@@ -277,11 +277,11 @@ class _BadgeInfoCard extends StatelessWidget {
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withOpacity(0.2),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -302,9 +302,9 @@ class _BadgeInfoCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: badgeColor.withOpacity(0.1),
+              color: badgeColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: badgeColor.withOpacity(0.2)),
+              border: Border.all(color: badgeColor.withValues(alpha: 0.2)),
             ),
             child: Text(
               typeName,
@@ -331,7 +331,7 @@ class _BadgeInfoCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: DiscourseHtmlContent(
@@ -345,7 +345,7 @@ class _BadgeInfoCard extends StatelessWidget {
           ],
 
           const SizedBox(height: 24),
-          Divider(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+          Divider(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
           
           // Grant Count
@@ -402,7 +402,7 @@ class _UserBadgeItem extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withOpacity(0.4),
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
                     width: 1,
                   ),
                 ),
@@ -460,7 +460,7 @@ class _UserBadgeItem extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(

@@ -56,7 +56,7 @@ Widget buildCalloutBlock({
 
   String? wrappedTitleHtml;
   if (titleHtml != null && titleHtml.isNotEmpty) {
-    final colorHex = config.color.value
+    final colorHex = config.color.toARGB32()
         .toRadixString(16)
         .padLeft(8, '0')
         .substring(2);

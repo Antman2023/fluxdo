@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'discourse_service.dart';
 import '../constants.dart';
 import '../utils/url_helper.dart';
@@ -25,7 +27,7 @@ class EmojiHandler {
     } catch (e) {
       // 即使加载失败，也保证 _emojiMap 不为空，避免后续空指针
       _emojiMap = {};
-      print('Failed to load emojis for handler: $e');
+      debugPrint('Failed to load emojis for handler: $e');
     }
   }
 
@@ -41,9 +43,7 @@ class EmojiHandler {
       String? url = _emojiMap?[name];
 
       // 如果找不到，使用备用的 Twitter emoji URL
-      if (url == null) {
-        url = '/images/emoji/twitter/$name.png?v=12';
-      }
+      url ??= '/images/emoji/twitter/$name.png?v=12';
 
       final fullUrl = UrlHelper.resolveUrl(url);
       // 使用 class="emoji" 方便 CSS 或 WidgetFactory 识别

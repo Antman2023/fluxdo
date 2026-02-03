@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
 import 'core_providers.dart';
@@ -47,7 +48,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
 
   @override
   Future<TopicDetail> build() async {
-    print('[TopicDetailNotifier] build called with topicId=${arg.topicId}, postNumber=${arg.postNumber}');
+    debugPrint('[TopicDetailNotifier] build called with topicId=${arg.topicId}, postNumber=${arg.postNumber}');
     _hasMoreAfter = true;
     _hasMoreBefore = true;
     final service = ref.read(discourseServiceProvider);
@@ -168,6 +169,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     _isLoadingMore = true;
 
     try {
+      // ignore: invalid_use_of_internal_member
       state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
 
       state = await AsyncValue.guard(() async {
@@ -228,6 +230,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     _isLoadingPrevious = true;
 
     try {
+      // ignore: invalid_use_of_internal_member
       state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
 
       state = await AsyncValue.guard(() async {
@@ -292,6 +295,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     _isLoadingPrevious = true;
 
     try {
+      // ignore: invalid_use_of_internal_member
       state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
 
       state = await AsyncValue.guard(() async {
@@ -352,6 +356,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
     _isLoadingMore = true;
 
     try {
+      // ignore: invalid_use_of_internal_member
       state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
 
       state = await AsyncValue.guard(() async {
@@ -456,7 +461,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         userVoted: newDetail.userVoted,
       ));
     } catch (e) {
-      print('[TopicDetail] 加载新回复失败: $e');
+      debugPrint('[TopicDetail] 加载新回复失败: $e');
     }
   }
 
@@ -517,7 +522,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
         postStream: PostStream(posts: newPosts, stream: currentDetail.postStream.stream),
       ));
     } catch (e) {
-      print('[TopicDetail] 刷新帖子 $postId 失败: $e');
+      debugPrint('[TopicDetail] 刷新帖子 $postId 失败: $e');
     }
   }
 
@@ -800,7 +805,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       // 更新本地状态
       state = AsyncValue.data(currentDetail.copyWith(notificationLevel: level));
     } catch (e) {
-      print('[TopicDetail] 更新订阅级别失败: $e');
+      debugPrint('[TopicDetail] 更新订阅级别失败: $e');
       rethrow;
     }
   }
@@ -847,7 +852,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   Future<void> refreshWithPostNumber(int postNumber) async {
     if (state.isLoading) return;
 
-    state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
+    // ignore: invalid_use_of_internal_member
+      state = const AsyncLoading<TopicDetail>().copyWithPrevious(state);
 
     state = await AsyncValue.guard(() async {
       final service = ref.read(discourseServiceProvider);
@@ -910,7 +916,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
       // 返回目标帖子的索引
       return mergedPosts.indexWhere((p) => p.postNumber == postNumber);
     } catch (e) {
-      print('[TopicDetail] 加载帖子 #$postNumber 失败: $e');
+      debugPrint('[TopicDetail] 加载帖子 #$postNumber 失败: $e');
       return -1;
     }
   }

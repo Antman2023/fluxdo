@@ -156,14 +156,14 @@ class AuthVerifyService {
             }
           }
         },
-        onLoadError: (controller, url, code, message) {
-          debugPrint('[AuthVerifyService] 加载失败: $code $message');
+        onReceivedError: (controller, request, error) {
+          debugPrint('[AuthVerifyService] 加载失败: ${error.type} ${error.description}');
           if (!completer.isCompleted) {
             completer.complete(null);
           }
         },
-        onLoadHttpError: (controller, url, statusCode, description) {
-          debugPrint('[AuthVerifyService] HTTP 错误: $statusCode $description');
+        onReceivedHttpError: (controller, request, response) {
+          debugPrint('[AuthVerifyService] HTTP 错误: ${response.statusCode} ${response.reasonPhrase}');
           if (!completer.isCompleted) {
             completer.complete(null);
           }

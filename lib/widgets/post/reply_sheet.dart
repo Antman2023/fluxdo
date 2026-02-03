@@ -352,7 +352,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                       
                       Divider(
                         height: 1,
-                        color: theme.colorScheme.outlineVariant.withOpacity(0.5),
+                        color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
                       ),
                     ],
                   ),
@@ -380,7 +380,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                     ),
                     Divider(
                       height: 1,
-                      color: theme.colorScheme.outlineVariant.withOpacity(0.2),
+                      color: theme.colorScheme.outlineVariant.withValues(alpha:0.2),
                     ),
                   ],
 

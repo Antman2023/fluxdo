@@ -91,7 +91,7 @@ class _PostItemState extends ConsumerState<PostItem> {
   final ValueNotifier<bool> _showReplyHistoryNotifier = ValueNotifier<bool>(false);
 
   // 回复列表（回复当前帖子的帖子）
-  List<Post> _replies = [];
+  final List<Post> _replies = [];
   /// 回复列表加载状态 ValueNotifier（用于隔离 UI 更新）
   final ValueNotifier<bool> _isLoadingRepliesNotifier = ValueNotifier<bool>(false);
   /// 回复列表显示状态 ValueNotifier（用于隔离 UI 更新）
@@ -171,7 +171,7 @@ class _PostItemState extends ConsumerState<PostItem> {
          .updatePostReaction(widget.post.id, reactions, currentUserReaction);
     } catch (e) {
       // Provider 可能未初始化（例如从其他页面直接进入帖子详情）
-      print('[PostItem] 同步点赞状态到 Provider 失败: $e');
+      debugPrint('[PostItem] 同步点赞状态到 Provider 失败: $e');
     }
   }
 
@@ -220,6 +220,7 @@ class _PostItemState extends ConsumerState<PostItem> {
     
     final buttonPos = box.localToGlobal(Offset.zero);
     final buttonSize = box.size;
+    // ignore: use_build_context_synchronously
     final screenWidth = MediaQuery.of(context).size.width;
 
     // 配置参数
@@ -265,12 +266,13 @@ class _PostItemState extends ConsumerState<PostItem> {
     final transformAlignment = Alignment(alignmentX, alignmentY);
 
     showGeneralDialog(
+      // ignore: use_build_context_synchronously
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
       barrierColor: Colors.transparent, // 不使用背景遮罩，保持清爽
       transitionDuration: const Duration(milliseconds: 450), // 增加时长让挤出效果更明显
-      pageBuilder: (_, __, ___) => const SizedBox(),
+      pageBuilder: (_, _, _) => const SizedBox(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         // 弹簧动画曲线产生挤出效果
         final curvedValue = Curves.elasticOut.transform(animation.value);
@@ -342,7 +344,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                                   image: discourseImageProvider(_getEmojiUrl(r)),
                                   width: iconSize,
                                   height: iconSize,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.emoji_emotions_outlined, size: 24),
+                                  errorBuilder: (_, _, _) => const Icon(Icons.emoji_emotions_outlined, size: 24),
                                 ),
                               ),
                             ),
@@ -466,7 +468,7 @@ class _PostItemState extends ConsumerState<PostItem> {
   Future<void> _sharePost() async {
     final post = widget.post;
     final url = '${AppConstants.baseUrl}/t/${widget.topicId}/${post.postNumber}';
-    await Share.share(url);
+    await SharePlus.instance.share(ShareParams(text: url));
   }
 
   /// 切换书签状态

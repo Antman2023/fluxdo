@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/webview_settings.dart';
-import '../services/network/cookie/cookie_jar_service.dart';
 
 /// 通用内置浏览器页面
 class WebViewPage extends StatefulWidget {

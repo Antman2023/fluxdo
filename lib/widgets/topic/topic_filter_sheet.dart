@@ -155,7 +155,7 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
               width: 32,
               height: 4,
               decoration: BoxDecoration(
-                color: colorScheme.outlineVariant.withOpacity(0.5),
+                color: colorScheme.outlineVariant.withValues(alpha:0.5),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -381,7 +381,7 @@ class _TopicFilterSheetState extends ConsumerState<TopicFilterSheet> {
                         width: 2,
                         margin: const EdgeInsets.only(left: 12, right: 12, top: 4, bottom: 4),
                         decoration: BoxDecoration(
-                           color: parentColor.withOpacity(0.3),
+                           color: parentColor.withValues(alpha:0.3),
                            borderRadius: BorderRadius.circular(1),
                         ),
                       ),
@@ -516,13 +516,13 @@ class _CategoryFilterItem extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: isSelected 
-                ? color.withOpacity(0.15) 
-                : color.withOpacity(0.08),
+                ? color.withValues(alpha:0.15) 
+                : color.withValues(alpha:0.08),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: isSelected 
                   ? color
-                  : color.withOpacity(0.2),
+                  : color.withValues(alpha:0.2),
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -622,9 +622,9 @@ class ActiveFiltersBar extends ConsumerWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainer.withOpacity(0.5),
+              color: colorScheme.surfaceContainer.withValues(alpha:0.5),
               border: Border(
-                bottom: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.2)),
+                bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha:0.2)),
               ),
             ),
             child: Column(

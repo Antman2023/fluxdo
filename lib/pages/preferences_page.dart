@@ -24,7 +24,7 @@ class PreferencesPage extends ConsumerWidget {
             color: theme.colorScheme.surfaceContainerLow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             ),
             margin: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
@@ -44,7 +44,7 @@ class PreferencesPage extends ConsumerWidget {
                     ref.read(preferencesProvider.notifier).setLongPressPreview(value);
                   },
                 ),
-                Divider(height: 1, indent: 56, color: theme.colorScheme.outlineVariant.withOpacity(0.3)),
+                Divider(height: 1, indent: 56, color: theme.colorScheme.outlineVariant.withValues(alpha:0.3)),
                 SwitchListTile(
                   title: const Text('匿名分享'),
                   subtitle: const Text('分享链接时不附带个人用户标识'),
@@ -70,7 +70,7 @@ class PreferencesPage extends ConsumerWidget {
             color: theme.colorScheme.surfaceContainerLow,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: theme.colorScheme.outlineVariant.withOpacity(0.2)),
+              side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)),
             ),
             margin: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,

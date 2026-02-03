@@ -5,6 +5,7 @@ typedef CanHorizontalOrVerticalDrag = bool Function();
 typedef ShouldAccpetHorizontalOrVerticalDrag =
     bool Function(Map<int, VelocityTracker> velocityTrackers);
 
+// ignore: library_private_types_in_public_api
 mixin DragGestureRecognizerMixin on _DragGestureRecognizer {
   bool get canDrag =>
       canHorizontalOrVerticalDrag == null || canHorizontalOrVerticalDrag!();
