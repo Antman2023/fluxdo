@@ -10,18 +10,20 @@ import '../services/webview_settings.dart';
 class WebViewPage extends StatefulWidget {
   final String url;
   final String? title;
+  final String? injectCss;
 
   const WebViewPage({
     super.key,
     required this.url,
     this.title,
+    this.injectCss,
   });
 
-  static void open(BuildContext context, String url, {String? title}) {
-    Navigator.push(
+  static Future<T?> open<T extends Object?>(BuildContext context, String url, {String? title, String? injectCss}) {
+    return Navigator.push<T>(
       context,
       MaterialPageRoute(
-        builder: (_) => WebViewPage(url: url, title: title),
+        builder: (_) => WebViewPage(url: url, title: title, injectCss: injectCss),
       ),
     );
   }
@@ -63,7 +65,7 @@ class _WebViewPageState extends State<WebViewPage> {
           title: Text(_currentTitle.isEmpty ? '浏览器' : _currentTitle),
           leading: IconButton(
             icon: const Icon(Icons.close_rounded),
-            onPressed: _handleBackNavigation,
+            onPressed: () => Navigator.of(context).pop(),
             tooltip: '关闭',
           ),
           actions: [
@@ -155,6 +157,22 @@ class _WebViewPageState extends State<WebViewPage> {
                       if (title != null && title.isNotEmpty) {
                         _currentTitle = title;
                       }
+                    });
+                    if (urlString != null && _shouldSyncCookiesForUrl(urlString)) {
+                      await CookieJarService().syncFromWebView();
+                    }
+                    if (widget.injectCss != null) {
+                      await controller.injectCSSCode(source: widget.injectCss!);
+                    }
+                  },
+                  onUpdateVisitedHistory: (controller, url, isReload) async {
+                    final canGoBack = await controller.canGoBack();
+                    final canGoForward = await controller.canGoForward();
+                    final urlString = url?.toString();
+                    setState(() {
+                      _currentUrl = urlString ?? '';
+                      _canGoBack = canGoBack;
+                      _canGoForward = canGoForward;
                     });
                     if (urlString != null && _shouldSyncCookiesForUrl(urlString)) {
                       await CookieJarService().syncFromWebView();

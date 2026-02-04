@@ -102,14 +102,17 @@ class _SmartAvatarState extends State<SmartAvatar> {
       );
     }
 
-    // 用 ClipOval 确保图片被正确裁剪成圆形
-    Widget avatar = ClipOval(
-      child: Container(
-        width: innerRadius * 2,
-        height: innerRadius * 2,
+    // 使用 BoxDecoration + shape: circle 确保 Hero 动画时保持圆形
+    // ClipOval 在 Hero 飞行时不会被正确应用
+    Widget avatar = Container(
+      width: innerRadius * 2,
+      height: innerRadius * 2,
+      decoration: BoxDecoration(
         color: bgColor,
-        child: child,
+        shape: BoxShape.circle,
       ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
 
     // 如果有边框，在外层添加，总尺寸保持 radius * 2
