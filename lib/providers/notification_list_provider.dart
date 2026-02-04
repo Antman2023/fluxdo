@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/notification.dart';
+import '../utils/pagination_helper.dart';
 import 'core_providers.dart';
 import 'message_bus_providers.dart';
 
@@ -8,7 +9,12 @@ import 'message_bus_providers.dart';
 class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>> {
   int _totalRows = 0;
   bool get hasMore => state.value != null && state.value!.length < _totalRows;
-  
+
+  /// 分页助手
+  static final _paginationHelper = PaginationHelpers.forNotifications<DiscourseNotification>(
+    keyExtractor: (n) => n.id,
+  );
+
   @override
   Future<List<DiscourseNotification>> build() async {
     final service = ref.read(discourseServiceProvider);
@@ -16,7 +22,7 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
     _totalRows = response.totalRowsNotifications;
     return response.notifications;
   }
-  
+
   /// 刷新列表
   Future<void> refresh() async {
     state = const AsyncValue.loading();
@@ -27,7 +33,7 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
       return response.notifications;
     });
   }
-  
+
   /// 静默刷新
   Future<void> silentRefresh() async {
     final service = ref.read(discourseServiceProvider);
@@ -43,27 +49,24 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
   /// 加载更多
   Future<void> loadMore() async {
     if (!hasMore || state.isLoading) return;
-    
+
     // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<DiscourseNotification>>().copyWithPrevious(state);
-    
+
     state = await AsyncValue.guard(() async {
       final currentList = state.requireValue;
       final offset = currentList.length;
-      
+
       final service = ref.read(discourseServiceProvider);
       final response = await service.getNotifications(offset: offset);
-      
-      if (response.notifications.isEmpty) {
-        return currentList;
-      }
-      
-      // 去重
-      final newItems = response.notifications
-          .where((n) => !currentList.any((c) => c.id == n.id))
-          .toList();
-          
-      return [...currentList, ...newItems];
+
+      final currentState = PaginationState(items: currentList);
+      final result = _paginationHelper.processLoadMore(
+        currentState,
+        PaginationResult(items: response.notifications, totalRows: _totalRows),
+      );
+
+      return result.items;
     });
   }
 
@@ -127,10 +130,10 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
   void addNotification(DiscourseNotification notification) {
     final currentList = state.value;
     if (currentList == null) return;
-    
+
     // 检查是否已存在
     if (currentList.any((n) => n.id == notification.id)) return;
-    
+
     // 插入到列表开头
     state = AsyncValue.data([notification, ...currentList]);
   }

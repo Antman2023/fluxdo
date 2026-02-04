@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
 import '../services/preloaded_data_service.dart';
 import '../services/discourse/discourse_service.dart';
+import '../utils/pagination_helper.dart';
 import '../widgets/topic/topic_filter_sheet.dart';
 import 'core_providers.dart';
 
@@ -17,12 +18,18 @@ enum TopicListFilter {
 /// 话题列表 Notifier (支持分页、静默刷新和筛选)
 class TopicListNotifier extends AsyncNotifier<List<Topic>> {
   TopicListNotifier(this.arg);
+
+  final TopicListFilter arg;
+
   int _page = 0;
   bool _hasMore = true;
   bool get hasMore => _hasMore;
-  
-  final TopicListFilter arg;
-  
+
+  /// 分页助手
+  static final _paginationHelper = PaginationHelpers.forTopics<Topic>(
+    keyExtractor: (topic) => topic.id,
+  );
+
   @override
   Future<List<Topic>> build() async {
     // 监听筛选条件变化
@@ -37,18 +44,20 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
       final preloadedService = PreloadedDataService();
       final preloadedData = preloadedService.getInitialTopicListSync();
       if (preloadedData != null) {
-        if (preloadedData.topics.isEmpty) {
-          _hasMore = false;
-        }
-        return preloadedData.topics;
+        final result = _paginationHelper.processRefresh(
+          PaginationResult(items: preloadedData.topics, moreUrl: preloadedData.moreTopicsUrl),
+        );
+        _hasMore = result.hasMore;
+        return result.items;
       }
       if (preloadedService.hasInitialTopicList) {
         final asyncPreloaded = await preloadedService.getInitialTopicList();
         if (asyncPreloaded != null) {
-          if (asyncPreloaded.topics.isEmpty) {
-            _hasMore = false;
-          }
-          return asyncPreloaded.topics;
+          final result = _paginationHelper.processRefresh(
+            PaginationResult(items: asyncPreloaded.topics, moreUrl: asyncPreloaded.moreTopicsUrl),
+          );
+          _hasMore = result.hasMore;
+          return result.items;
         }
       }
     }
@@ -57,15 +66,16 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     final service = ref.read(discourseServiceProvider);
     final response = await _fetchTopics(service, arg, 0, filter);
 
-    if (response.topics.isEmpty) {
-      _hasMore = false;
-    }
-    return response.topics;
+    final result = _paginationHelper.processRefresh(
+      PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+    );
+    _hasMore = result.hasMore;
+    return result.items;
   }
 
   Future<TopicListResponse> _fetchTopics(
-    DiscourseService service, 
-    TopicListFilter filter, 
+    DiscourseService service,
+    TopicListFilter filter,
     int page,
     TopicFilterParams filterParams,
   ) {
@@ -81,7 +91,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         page: page,
       );
     }
-    
+
     // 无筛选条件，使用原有方法
     switch (filter) {
       case TopicListFilter.latest:
@@ -96,7 +106,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         return service.getHotTopics(page: page);
     }
   }
-  
+
   String _getFilterName(TopicListFilter filter) {
     switch (filter) {
       case TopicListFilter.latest:
@@ -111,7 +121,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         return 'top/weekly';
     }
   }
-  
+
   /// 刷新列表
   Future<void> refresh() async {
     state = const AsyncValue.loading();
@@ -121,11 +131,15 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
       final service = ref.read(discourseServiceProvider);
       final filterParams = ref.read(topicFilterProvider);
       final response = await _fetchTopics(service, arg, 0, filterParams);
-      if (response.topics.isEmpty) _hasMore = false;
-      return response.topics;
+
+      final result = _paginationHelper.processRefresh(
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+      _hasMore = result.hasMore;
+      return result.items;
     });
   }
-  
+
   /// 静默刷新
   Future<void> silentRefresh() async {
     final service = ref.read(discourseServiceProvider);
@@ -133,9 +147,12 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     try {
       final response = await _fetchTopics(service, arg, 0, filterParams);
       _page = 0;
-      _hasMore = true;
-      if (response.topics.isEmpty) _hasMore = false;
-      state = AsyncValue.data(response.topics);
+
+      final result = _paginationHelper.processRefresh(
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+      _hasMore = result.hasMore;
+      state = AsyncValue.data(result.items);
     } catch (e) {
       debugPrint('Silent refresh failed: $e');
     }
@@ -144,30 +161,29 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
   /// 加载更多
   Future<void> loadMore() async {
     if (!_hasMore || state.isLoading) return;
-    
+
     // ignore: invalid_use_of_internal_member
     state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
-    
+
     state = await AsyncValue.guard(() async {
       final currentTopics = state.requireValue;
       final nextPage = _page + 1;
-      
+
       final service = ref.read(discourseServiceProvider);
       final filterParams = ref.read(topicFilterProvider);
       final response = await _fetchTopics(service, arg, nextPage, filterParams);
-      
-      if (response.topics.isEmpty) {
-        _hasMore = false;
-        return currentTopics;
-      } else {
+
+      final currentState = PaginationState(items: currentTopics);
+      final result = _paginationHelper.processLoadMore(
+        currentState,
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+
+      _hasMore = result.hasMore;
+      if (result.items.length > currentTopics.length) {
         _page = nextPage;
-        
-        final newTopics = response.topics
-            .where((t) => !currentTopics.any((c) => c.id == t.id))
-            .toList();
-            
-        return [...currentTopics, ...newTopics];
       }
+      return result.items;
     });
   }
 
@@ -185,7 +201,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     try {
       final service = ref.read(discourseServiceProvider);
       final detail = await service.getTopicDetail(topicId);
-      
+
       final updatedTopic = Topic(
         id: detail.id,
         title: detail.title,
@@ -199,7 +215,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         pinned: existingTopic.pinned,
         tags: detail.tags ?? existingTopic.tags,
         posters: existingTopic.posters,
-        unseen: false, 
+        unseen: false,
         unread: 0,
         lastReadPostNumber: detail.postsCount,
         highestPostNumber: detail.postsCount,
@@ -219,20 +235,19 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
   }
 
   void updateSeen(int topicId, int highestSeen) {
-    // ... (This logic remains valid for any list)
     final topics = state.value;
     if (topics == null) return;
-    
+
     final index = topics.indexWhere((t) => t.id == topicId);
     if (index == -1) return;
-    
+
     final topic = topics[index];
     final currentRead = topic.lastReadPostNumber ?? 0;
-    
+
     if (highestSeen <= currentRead) return;
-    
+
     final newUnread = (topic.highestPostNumber - highestSeen).clamp(0, topic.highestPostNumber);
-    
+
     final updated = Topic(
       id: topic.id,
       title: topic.title,
@@ -258,7 +273,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
       lastReadPostNumber: highestSeen,
       highestPostNumber: topic.highestPostNumber,
     );
-    
+
     final newList = [...topics];
     newList[index] = updated;
     state = AsyncValue.data(newList);

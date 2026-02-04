@@ -9,6 +9,7 @@ import '../providers/discourse_providers.dart';
 import '../services/discourse_cache_manager.dart';
 import '../utils/time_utils.dart';
 import '../utils/number_utils.dart';
+import '../utils/pagination_helper.dart';
 import '../services/emoji_handler.dart';
 import '../constants.dart';
 import '../utils/share_utils.dart';
@@ -375,6 +376,18 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     );
   }
 
+  /// 用户动作分页助手
+  static final _actionsPaginationHelper = PaginationHelpers.forList<UserAction>(
+    keyExtractor: (a) => '${a.topicId}_${a.postNumber}_${a.actionType}',
+    expectedPageSize: 30,
+  );
+
+  /// 用户回应分页助手
+  static final _reactionsPaginationHelper = PaginationHelpers.forList<UserReaction>(
+    keyExtractor: (r) => r.id,
+    expectedPageSize: 20,
+  );
+
   Future<void> _loadActions(int? filter, {bool loadMore = false}) async {
     final key = filter ?? -1;
     // 如果已有数据且正在加载，跳过（防止重复加载更多）
@@ -394,11 +407,20 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       if (mounted) {
         setState(() {
           if (loadMore) {
-            _actionsCache[key] = [...?_actionsCache[key], ...response.actions];
+            final currentState = PaginationState<UserAction>(items: _actionsCache[key] ?? []);
+            final result = _actionsPaginationHelper.processLoadMore(
+              currentState,
+              PaginationResult(items: response.actions, expectedPageSize: 30),
+            );
+            _actionsCache[key] = result.items;
+            _hasMoreCache[key] = result.hasMore;
           } else {
-            _actionsCache[key] = response.actions;
+            final result = _actionsPaginationHelper.processRefresh(
+              PaginationResult(items: response.actions, expectedPageSize: 30),
+            );
+            _actionsCache[key] = result.items;
+            _hasMoreCache[key] = result.hasMore;
           }
-          _hasMoreCache[key] = response.actions.length >= 30;
           _loadingCache[key] = false;
         });
       }
@@ -425,11 +447,20 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       if (mounted) {
         setState(() {
           if (loadMore) {
-            _reactionsCache = [...?_reactionsCache, ...response.reactions];
+            final currentState = PaginationState<UserReaction>(items: _reactionsCache ?? []);
+            final result = _reactionsPaginationHelper.processLoadMore(
+              currentState,
+              PaginationResult(items: response.reactions, expectedPageSize: 20),
+            );
+            _reactionsCache = result.items;
+            _reactionsHasMore = result.hasMore;
           } else {
-            _reactionsCache = response.reactions;
+            final result = _reactionsPaginationHelper.processRefresh(
+              PaginationResult(items: response.reactions, expectedPageSize: 20),
+            );
+            _reactionsCache = result.items;
+            _reactionsHasMore = result.hasMore;
           }
-          _reactionsHasMore = response.reactions.length >= 20;
           _reactionsLoading = false;
         });
       }

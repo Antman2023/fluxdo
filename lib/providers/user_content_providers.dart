@@ -1,6 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
+import '../utils/pagination_helper.dart';
 import 'core_providers.dart';
+
+/// 分页助手（所有用户内容列表共用）
+final _topicPaginationHelper = PaginationHelpers.forTopics<Topic>(
+  keyExtractor: (topic) => topic.id,
+);
 
 /// 浏览历史 Notifier (支持分页)
 class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
@@ -14,8 +20,12 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
     _hasMore = true;
     final service = ref.read(discourseServiceProvider);
     final response = await service.getBrowsingHistory(page: 0);
-    if (response.topics.isEmpty) _hasMore = false;
-    return response.topics;
+
+    final result = _topicPaginationHelper.processRefresh(
+      PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+    );
+    _hasMore = result.hasMore;
+    return result.items;
   }
 
   Future<void> refresh() async {
@@ -25,8 +35,12 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
       _hasMore = true;
       final service = ref.read(discourseServiceProvider);
       final response = await service.getBrowsingHistory(page: 0);
-      if (response.topics.isEmpty) _hasMore = false;
-      return response.topics;
+
+      final result = _topicPaginationHelper.processRefresh(
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+      _hasMore = result.hasMore;
+      return result.items;
     });
   }
 
@@ -43,19 +57,17 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getBrowsingHistory(page: nextPage);
 
-      if (response.topics.isEmpty) {
-        _hasMore = false;
-        return currentList;
+      final currentState = PaginationState(items: currentList);
+      final result = _topicPaginationHelper.processLoadMore(
+        currentState,
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+
+      _hasMore = result.hasMore;
+      if (result.items.length > currentList.length) {
+        _page = nextPage;
       }
-
-      _page = nextPage;
-
-      // 去重
-      final newItems = response.topics
-          .where((t) => !currentList.any((c) => c.id == t.id))
-          .toList();
-
-      return [...currentList, ...newItems];
+      return result.items;
     });
   }
 }
@@ -76,8 +88,12 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
     _hasMore = true;
     final service = ref.read(discourseServiceProvider);
     final response = await service.getUserBookmarks(page: 0);
-    if (response.topics.isEmpty) _hasMore = false;
-    return response.topics;
+
+    final result = _topicPaginationHelper.processRefresh(
+      PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+    );
+    _hasMore = result.hasMore;
+    return result.items;
   }
 
   Future<void> refresh() async {
@@ -87,8 +103,12 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
       _hasMore = true;
       final service = ref.read(discourseServiceProvider);
       final response = await service.getUserBookmarks(page: 0);
-      if (response.topics.isEmpty) _hasMore = false;
-      return response.topics;
+
+      final result = _topicPaginationHelper.processRefresh(
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+      _hasMore = result.hasMore;
+      return result.items;
     });
   }
 
@@ -105,19 +125,17 @@ class BookmarksNotifier extends AsyncNotifier<List<Topic>> {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getUserBookmarks(page: nextPage);
 
-      if (response.topics.isEmpty) {
-        _hasMore = false;
-        return currentList;
+      final currentState = PaginationState(items: currentList);
+      final result = _topicPaginationHelper.processLoadMore(
+        currentState,
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+
+      _hasMore = result.hasMore;
+      if (result.items.length > currentList.length) {
+        _page = nextPage;
       }
-
-      _page = nextPage;
-
-      // 去重
-      final newItems = response.topics
-          .where((t) => !currentList.any((c) => c.id == t.id))
-          .toList();
-
-      return [...currentList, ...newItems];
+      return result.items;
     });
   }
 }
@@ -138,8 +156,12 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
     _hasMore = true;
     final service = ref.read(discourseServiceProvider);
     final response = await service.getUserCreatedTopics(page: 0);
-    if (response.topics.isEmpty) _hasMore = false;
-    return response.topics;
+
+    final result = _topicPaginationHelper.processRefresh(
+      PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+    );
+    _hasMore = result.hasMore;
+    return result.items;
   }
 
   Future<void> refresh() async {
@@ -149,8 +171,12 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
       _hasMore = true;
       final service = ref.read(discourseServiceProvider);
       final response = await service.getUserCreatedTopics(page: 0);
-      if (response.topics.isEmpty) _hasMore = false;
-      return response.topics;
+
+      final result = _topicPaginationHelper.processRefresh(
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+      _hasMore = result.hasMore;
+      return result.items;
     });
   }
 
@@ -167,19 +193,17 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getUserCreatedTopics(page: nextPage);
 
-      if (response.topics.isEmpty) {
-        _hasMore = false;
-        return currentList;
+      final currentState = PaginationState(items: currentList);
+      final result = _topicPaginationHelper.processLoadMore(
+        currentState,
+        PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
+      );
+
+      _hasMore = result.hasMore;
+      if (result.items.length > currentList.length) {
+        _page = nextPage;
       }
-
-      _page = nextPage;
-
-      // 去重
-      final newItems = response.topics
-          .where((t) => !currentList.any((c) => c.id == t.id))
-          .toList();
-
-      return [...currentList, ...newItems];
+      return result.items;
     });
   }
 }
