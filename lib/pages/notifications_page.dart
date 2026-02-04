@@ -6,8 +6,8 @@ import '../providers/discourse_providers.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'user_profile_page.dart';
 import 'badge_page.dart';
-import '../services/discourse_cache_manager.dart';
 import '../widgets/common/emoji_text.dart';
+import '../widgets/common/smart_avatar.dart';
 import '../widgets/notification/notification_list_skeleton.dart';
 import '../utils/time_utils.dart';
 
@@ -306,18 +306,12 @@ class _NotificationItem extends StatelessWidget {
             // 底层：用户头像
             Align(
               alignment: Alignment.center,
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: CircleAvatar(
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                  backgroundImage: notification.getAvatarUrl().isNotEmpty
-                      ? discourseImageProvider(notification.getAvatarUrl())
-                      : null,
-                  child: notification.getAvatarUrl().isEmpty
-                      ? const Icon(Icons.notifications, size: 20)
-                      : null,
-                ),
+              child: SmartAvatar(
+                imageUrl: notification.getAvatarUrl().isNotEmpty
+                    ? notification.getAvatarUrl()
+                    : null,
+                radius: 20,
+                backgroundColor: colorScheme.surfaceContainerHighest,
               ),
             ),
             // 右上角：通知类型图标

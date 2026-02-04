@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/mention_user.dart';
 import '../../constants.dart';
-import '../../services/discourse_cache_manager.dart';
+import '../common/smart_avatar.dart';
 
 /// 搜索用户的数据源类型
 typedef MentionDataSource = Future<MentionSearchResult> Function(String term);
@@ -458,9 +458,10 @@ class _MentionItemTile extends StatelessWidget {
     if (item.isUser) {
       final avatarUrl = item.user?.getAvatarUrl(AppConstants.baseUrl, size: 40);
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
-        return CircleAvatar(
-          radius: 12, // 调小 (16->12)
-          backgroundImage: discourseImageProvider(avatarUrl),
+        return SmartAvatar(
+          imageUrl: avatarUrl,
+          radius: 12,
+          fallbackText: item.mentionName,
         );
       }
     }
@@ -468,7 +469,7 @@ class _MentionItemTile extends StatelessWidget {
     // 群组或无头像时显示首字母
     final initial = item.mentionName.isNotEmpty ? item.mentionName[0].toUpperCase() : '?';
     return CircleAvatar(
-      radius: 12, // 调小 (16->12)
+      radius: 12,
       backgroundColor: item.isGroup
           ? theme.colorScheme.secondaryContainer
           : theme.colorScheme.primaryContainer,

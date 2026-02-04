@@ -7,6 +7,7 @@ import '../../providers/discourse_providers.dart';
 import '../../constants.dart';
 import '../../utils/font_awesome_helper.dart';
 import '../common/topic_badges.dart';
+import '../common/smart_avatar.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../utils/time_utils.dart';
 import '../../utils/number_utils.dart';
@@ -276,25 +277,18 @@ class TopicCard extends ConsumerWidget {
         children: List.generate(displayPosters.length, (index) {
           final poster = displayPosters[index];
           
+          final avatarUrl = poster.user!.avatarTemplate.startsWith('http')
+              ? poster.user!.getAvatarUrl(size: 48)
+              : '${AppConstants.baseUrl}${poster.user!.getAvatarUrl(size: 48)}';
           return Positioned(
             left: index * (avatarSize - overlap),
-            child: Container(
-              width: avatarSize,
-              height: avatarSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.surface, 
-                  width: 1.5,
-                ),
-              ),
-              child: CircleAvatar(
-                radius: (avatarSize - 4) / 2,
-                backgroundImage: discourseImageProvider(
-                  poster.user!.avatarTemplate.startsWith('http')
-                      ? poster.user!.getAvatarUrl(size: 48)
-                      : '${AppConstants.baseUrl}${poster.user!.getAvatarUrl(size: 48)}',
-                ),
+            child: SmartAvatar(
+              imageUrl: avatarUrl,
+              radius: avatarSize / 2,
+              fallbackText: poster.user!.username,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.surface,
+                width: 1.5,
               ),
             ),
           );

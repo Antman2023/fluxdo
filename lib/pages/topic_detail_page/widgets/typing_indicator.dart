@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../constants.dart';
 import '../../../providers/message_bus_providers.dart';
-import '../../../services/discourse_cache_manager.dart';
+import '../../../widgets/common/smart_avatar.dart';
 
 /// 正在输入动画指示器
 class TypingIndicator extends StatefulWidget {
@@ -89,26 +89,17 @@ class TypingAvatars extends StatelessWidget {
           for (int i = 0; i < visibleUsers.length; i++)
             Positioned(
               left: i * (avatarSize - overlap),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    width: 2,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: (avatarSize - 4) / 2,
-                  backgroundImage: visibleUsers[i].avatarTemplate.isNotEmpty
-                      ? discourseImageProvider(
-                          visibleUsers[i].avatarTemplate.startsWith('http')
-                              ? visibleUsers[i].getAvatarUrl(size: 56)
-                              : '${AppConstants.baseUrl}${visibleUsers[i].getAvatarUrl(size: 56)}',
-                        )
-                      : null,
-                  child: visibleUsers[i].avatarTemplate.isEmpty
-                      ? Text(visibleUsers[i].username[0].toUpperCase())
-                      : null,
+              child: SmartAvatar(
+                imageUrl: visibleUsers[i].avatarTemplate.isNotEmpty
+                    ? (visibleUsers[i].avatarTemplate.startsWith('http')
+                        ? visibleUsers[i].getAvatarUrl(size: 56)
+                        : '${AppConstants.baseUrl}${visibleUsers[i].getAvatarUrl(size: 56)}')
+                    : null,
+                radius: avatarSize / 2,
+                fallbackText: visibleUsers[i].username,
+                border: Border.all(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  width: 2,
                 ),
               ),
             ),

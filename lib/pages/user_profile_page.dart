@@ -16,6 +16,7 @@ import '../utils/share_utils.dart';
 import '../providers/preferences_provider.dart';
 import '../widgets/common/flair_badge.dart';
 import '../widgets/common/animated_gradient_background.dart';
+import '../widgets/common/smart_avatar.dart';
 import '../widgets/content/discourse_html_content/discourse_html_content_widget.dart';
 import '../widgets/content/collapsed_html_content.dart';
 import '../widgets/post/reply_sheet.dart';
@@ -686,12 +687,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                 flairColor: _user?.flairColor,
                                 avatar: Hero(
                                   tag: 'user_avatar_${_user?.username ?? ''}',
-                                  child: CircleAvatar(
-                                    radius: 36,
-                                    backgroundColor: Colors.transparent,
-                                    backgroundImage: _user?.getAvatarUrl() != null
-                                        ? discourseImageProvider(_user!.getAvatarUrl(size: 144))
+                                  child: SmartAvatar(
+                                    imageUrl: _user?.getAvatarUrl() != null
+                                        ? _user!.getAvatarUrl(size: 144)
                                         : null,
+                                    radius: 36,
+                                    fallbackText: _user?.username,
                                   ),
                                 ),
                               ),
@@ -921,18 +922,13 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         flairName: _user?.flairName,
                         flairBgColor: _user?.flairBgColor,
                         flairColor: _user?.flairColor,
-                        avatar: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white70, width: 1),
-                          ),
-                          child: CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Colors.transparent,
-                            backgroundImage: _user?.getAvatarUrl() != null
-                                ? discourseImageProvider(_user!.getAvatarUrl(size: 64))
-                                : null,
-                          ),
+                        avatar: SmartAvatar(
+                          imageUrl: _user?.getAvatarUrl() != null
+                              ? _user!.getAvatarUrl(size: 64)
+                              : null,
+                          radius: 16,
+                          fallbackText: _user?.username,
+                          border: Border.all(color: Colors.white70, width: 1),
                         ),
                       ),
                       const SizedBox(width: 12),

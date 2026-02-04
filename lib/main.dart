@@ -8,8 +8,8 @@ import 'providers/discourse_providers.dart';
 import 'providers/message_bus_providers.dart';
 import 'services/discourse/discourse_service.dart';
 import 'providers/app_state_refresher.dart';
-import 'services/discourse_cache_manager.dart';
 import 'services/highlighter_service.dart';
+import 'widgets/common/smart_avatar.dart';
 import 'services/network/cookie/cookie_sync_service.dart';
 import 'services/network/cookie/cookie_jar_service.dart';
 import 'services/network/adapters/cronet_fallback_service.dart';
@@ -282,12 +282,10 @@ class _MainPageState extends ConsumerState<MainPage> {
     final avatarUrl = user?.getAvatarUrl();
     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
     final avatarWidget = hasAvatar
-        ? SizedBox(
-            width: 24,
-            height: 24,
-            child: CircleAvatar(
-              backgroundImage: discourseImageProvider(avatarUrl),
-            ),
+        ? SmartAvatar(
+            imageUrl: avatarUrl,
+            radius: 12,
+            fallbackText: user?.username,
           )
         : null;
 

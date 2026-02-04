@@ -19,6 +19,7 @@ import '../widgets/common/loading_spinner.dart';
 import '../widgets/common/loading_dialog.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/common/flair_badge.dart';
+import '../widgets/common/smart_avatar.dart';
 import '../providers/app_state_refresher.dart';
 import 'metaverse_page.dart';
 import '../widgets/ldc_balance_card.dart';
@@ -645,40 +646,22 @@ class _ProfileAvatar extends StatefulWidget {
 }
 
 class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveClientMixin {
-  late String _avatarUrl;
-  ImageProvider? _cachedImageProvider;
   Widget? _cachedAvatarWithFlair;
-  String _cachedFlairSignature = '';
+  String _cachedSignature = '';
 
   @override
   bool get wantKeepAlive => true;
 
-  @override
-  void initState() {
-    super.initState();
-    _avatarUrl = widget.avatarUrl;
-    _cachedFlairSignature = _buildFlairSignature();
-    if (_avatarUrl.isNotEmpty) {
-      _cachedImageProvider = discourseImageProvider(_avatarUrl);
-    }
+  String _buildCacheSignature() {
+    return '${widget.avatarUrl}_${widget.flairUrl}_${widget.flairName}_${widget.flairBgColor}_${widget.flairColor}';
   }
 
   @override
   void didUpdateWidget(_ProfileAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 只有当 URL 真的变化时才更新 ImageProvider
-    final newUrl = widget.avatarUrl;
-    final newFlairSignature = _buildFlairSignature();
-
-    if (newUrl != _avatarUrl) {
-      _avatarUrl = newUrl;
-      _cachedImageProvider = newUrl.isNotEmpty ? discourseImageProvider(newUrl) : null;
-      _cachedAvatarWithFlair = null; // 头像变化，清除缓存
-    }
-
-    if (newFlairSignature != _cachedFlairSignature) {
-      _cachedFlairSignature = newFlairSignature;
-      _cachedAvatarWithFlair = null; // flair 变化，清除缓存
+    final newSignature = _buildCacheSignature();
+    if (newSignature != _cachedSignature) {
+      _cachedAvatarWithFlair = null;
     }
   }
 
@@ -686,10 +669,11 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
   Widget build(BuildContext context) {
     super.build(context); // 必须调用以支持 AutomaticKeepAliveClientMixin
 
-    // 如果已经缓存了 AvatarWithFlair widget，直接返回
-    if (_cachedAvatarWithFlair != null) {
+    final signature = _buildCacheSignature();
+    if (_cachedAvatarWithFlair != null && signature == _cachedSignature) {
       return _cachedAvatarWithFlair!;
     }
+    _cachedSignature = signature;
 
     final theme = Theme.of(context);
 
@@ -702,34 +686,19 @@ class _ProfileAvatarState extends State<_ProfileAvatar> with AutomaticKeepAliveC
       flairName: widget.flairName,
       flairBgColor: widget.flairBgColor,
       flairColor: widget.flairColor,
-      avatar: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: theme.colorScheme.surfaceContainerHighest,
-            width: 1,
-          ),
-        ),
-        child: CircleAvatar(
-          radius: 36,
-          backgroundColor: theme.colorScheme.surfaceContainerHighest,
-          backgroundImage: _cachedImageProvider,
-          child: _avatarUrl.isEmpty
-              ? Icon(
-                  widget.isLoggedIn ? Icons.person : Icons.person_outline,
-                  size: 36,
-                  color: theme.colorScheme.onSurfaceVariant,
-                )
-              : null,
+      avatar: SmartAvatar(
+        imageUrl: widget.avatarUrl.isNotEmpty ? widget.avatarUrl : null,
+        radius: 36,
+        fallbackText: widget.isLoggedIn ? null : '',
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(
+          color: theme.colorScheme.surfaceContainerHighest,
+          width: 1,
         ),
       ),
     );
 
     return _cachedAvatarWithFlair!;
-  }
-
-  String _buildFlairSignature() {
-    return '${widget.flairUrl}|${widget.flairName}|${widget.flairBgColor}|${widget.flairColor}';
   }
 }
 

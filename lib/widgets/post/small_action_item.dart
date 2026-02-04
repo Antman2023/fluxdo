@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../constants.dart';
 import '../../models/topic.dart';
-import '../../services/discourse_cache_manager.dart';
 import '../../utils/time_utils.dart';
+import '../common/smart_avatar.dart';
 
 /// 帖子类型常量
 class PostTypes {
@@ -163,25 +163,15 @@ class SmallActionItem extends StatelessWidget {
             ),
           ),
           // 头像
-          CircleAvatar(
+          SmartAvatar(
+            imageUrl: avatarUrl.isNotEmpty
+                ? (avatarUrl.startsWith('http')
+                    ? avatarUrl
+                    : '${AppConstants.baseUrl}$avatarUrl')
+                : null,
             radius: 14,
+            fallbackText: post.username,
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            backgroundImage: avatarUrl.isNotEmpty
-                ? discourseImageProvider(
-                    avatarUrl.startsWith('http')
-                        ? avatarUrl
-                        : '${AppConstants.baseUrl}$avatarUrl',
-                  )
-                : null,
-            child: avatarUrl.isEmpty
-                ? Text(
-                    post.username.isNotEmpty ? post.username[0].toUpperCase() : '?',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : null,
           ),
         ],
       ),

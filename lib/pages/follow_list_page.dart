@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../providers/discourse_providers.dart';
-import '../services/discourse_cache_manager.dart';
+import '../widgets/common/smart_avatar.dart';
 import 'user_profile_page.dart';
 
 /// 关注/粉丝列表页面
@@ -102,11 +102,12 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
                             ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              leading: CircleAvatar(
-                                radius: 24,
-                                backgroundImage: user.avatarTemplate != null
-                                    ? discourseImageProvider(user.getAvatarUrl(size: 96))
+                              leading: SmartAvatar(
+                                imageUrl: user.avatarTemplate != null
+                                    ? user.getAvatarUrl(size: 96)
                                     : null,
+                                radius: 24,
+                                fallbackText: user.username,
                               ),
                               title: Text(
                                 user.name?.isNotEmpty == true ? user.name! : user.username,

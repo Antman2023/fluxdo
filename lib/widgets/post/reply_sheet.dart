@@ -5,8 +5,8 @@ import '../markdown_editor/markdown_editor.dart';
 import '../../models/topic.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/presence_service.dart';
-import '../../services/discourse_cache_manager.dart';
 import '../../services/emoji_handler.dart';
+import '../common/smart_avatar.dart';
 
 /// 显示回复底部弹框
 /// [topicId] 话题 ID (回复话题/帖子时必需)
@@ -301,18 +301,13 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                 ),
                               )
                             else if (widget.replyToPost != null) ...[
-                              CircleAvatar(
+                              SmartAvatar(
+                                imageUrl: widget.replyToPost!.getAvatarUrl().isNotEmpty
+                                    ? widget.replyToPost!.getAvatarUrl()
+                                    : null,
                                 radius: 14,
+                                fallbackText: widget.replyToPost!.username,
                                 backgroundColor: theme.colorScheme.primaryContainer,
-                                backgroundImage: widget.replyToPost!.getAvatarUrl().isNotEmpty
-                                    ? discourseImageProvider(widget.replyToPost!.getAvatarUrl())
-                                    : null,
-                                child: widget.replyToPost!.getAvatarUrl().isEmpty
-                                    ? Text(
-                                        widget.replyToPost!.username[0].toUpperCase(),
-                                        style: const TextStyle(fontSize: 12),
-                                      )
-                                    : null,
                               ),
                               const SizedBox(width: 8),
                               Expanded(

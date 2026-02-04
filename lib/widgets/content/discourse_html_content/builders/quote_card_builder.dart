@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../services/discourse_cache_manager.dart';
+import '../../../common/smart_avatar.dart';
 
 /// 构建回复引用卡片
 Widget buildQuoteCard({
@@ -54,9 +54,10 @@ Widget buildQuoteCard({
           child: Row(
             children: [
               if (avatarUrl.isNotEmpty) ...[
-                CircleAvatar(
+                SmartAvatar(
+                  imageUrl: avatarUrl,
                   radius: 12,
-                  backgroundImage: discourseImageProvider(avatarUrl),
+                  fallbackText: username,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 ),
                 const SizedBox(width: 8),

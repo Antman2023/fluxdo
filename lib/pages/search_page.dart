@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/discourse_providers.dart';
 import '../models/search_result.dart';
 import '../models/category.dart';
-import '../services/discourse_cache_manager.dart';
 import '../utils/font_awesome_helper.dart';
+import '../widgets/common/smart_avatar.dart';
 import '../utils/time_utils.dart';
 import '../utils/number_utils.dart';
 import 'topic_detail_page/topic_detail_page.dart';
@@ -703,23 +703,13 @@ class _SearchPostCard extends ConsumerWidget {
               Row(
                 children: [
                   // 用户头像
-                  CircleAvatar(
+                  SmartAvatar(
+                    imageUrl: post.getAvatarUrl().isNotEmpty
+                        ? post.getAvatarUrl(size: 48)
+                        : null,
                     radius: 12,
-                    backgroundImage: post.getAvatarUrl().isNotEmpty
-                        ? discourseImageProvider(post.getAvatarUrl(size: 48))
-                        : null,
+                    fallbackText: post.username,
                     backgroundColor: theme.colorScheme.secondaryContainer,
-                    child: post.getAvatarUrl().isEmpty
-                        ? Text(
-                            post.username.isNotEmpty
-                                ? post.username[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: theme.colorScheme.onSecondaryContainer,
-                            ),
-                          )
-                        : null,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -913,23 +903,13 @@ class _SearchUserCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              CircleAvatar(
+              SmartAvatar(
+                imageUrl: user.getAvatarUrl().isNotEmpty
+                    ? user.getAvatarUrl(size: 80)
+                    : null,
                 radius: 20,
-                backgroundImage: user.getAvatarUrl().isNotEmpty
-                    ? discourseImageProvider(user.getAvatarUrl(size: 80))
-                    : null,
+                fallbackText: user.username,
                 backgroundColor: theme.colorScheme.secondaryContainer,
-                child: user.getAvatarUrl().isEmpty
-                    ? Text(
-                        user.username.isNotEmpty
-                            ? user.username[0].toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: theme.colorScheme.onSecondaryContainer,
-                        ),
-                      )
-                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(

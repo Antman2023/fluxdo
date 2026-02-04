@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/topic.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
-import '../../services/discourse_cache_manager.dart';
 import '../../utils/time_utils.dart';
+import '../common/smart_avatar.dart';
 import '../content/discourse_html_content/discourse_html_content.dart';
 
 /// 版主操作帖子组件（moderator_action）
@@ -87,22 +87,11 @@ class ModeratorActionItem extends ConsumerWidget {
                     width: 1,
                   ),
                 ),
-                child: CircleAvatar(
+                child: SmartAvatar(
+                  imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
                   radius: 16,
+                  fallbackText: post.username,
                   backgroundColor: theme.colorScheme.secondaryContainer,
-                  backgroundImage: avatarUrl.isNotEmpty
-                      ? discourseImageProvider(avatarUrl)
-                      : null,
-                  child: avatarUrl.isEmpty
-                      ? Text(
-                          post.username[0].toUpperCase(),
-                          style: TextStyle(
-                            color: theme.colorScheme.onSecondaryContainer,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        )
-                      : null,
                 ),
               ),
               const SizedBox(width: 8),

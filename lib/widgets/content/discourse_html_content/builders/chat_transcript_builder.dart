@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../services/discourse_cache_manager.dart';
 import '../../../../utils/time_utils.dart';
+import '../../../common/smart_avatar.dart';
 
 /// 构建 Chat Transcript 聊天记录引用卡片
 ///
@@ -115,9 +115,10 @@ Widget buildChatTranscript({
             children: [
               // 头像 - 与 quote_card_builder 保持一致
               if (avatarUrl.isNotEmpty) ...[
-                CircleAvatar(
+                SmartAvatar(
+                  imageUrl: avatarUrl,
                   radius: 12,
-                  backgroundImage: discourseImageProvider(avatarUrl),
+                  fallbackText: username,
                   backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 ),
                 const SizedBox(width: 8),

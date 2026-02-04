@@ -16,6 +16,7 @@ import '../../services/emoji_handler.dart';
 import '../../utils/time_utils.dart';
 import '../content/discourse_html_content/discourse_html_content.dart';
 import '../common/flair_badge.dart';
+import '../common/smart_avatar.dart';
 import 'small_action_item.dart';
 import 'moderator_action_item.dart';
 import 'whisper_indicator.dart';
@@ -2031,31 +2032,10 @@ class _PostAvatar extends StatefulWidget {
 }
 
 class _PostAvatarState extends State<_PostAvatar> {
-  late String _avatarUrl;
-  ImageProvider? _cachedImageProvider;
-
-  @override
-  void initState() {
-    super.initState();
-    _avatarUrl = widget.post.getAvatarUrl();
-    if (_avatarUrl.isNotEmpty) {
-      _cachedImageProvider = discourseImageProvider(_avatarUrl);
-    }
-  }
-
-  @override
-  void didUpdateWidget(_PostAvatar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 只有当 URL 真的变化时才更新 ImageProvider
-    final newUrl = widget.post.getAvatarUrl();
-    if (newUrl != _avatarUrl) {
-      _avatarUrl = newUrl;
-      _cachedImageProvider = newUrl.isNotEmpty ? discourseImageProvider(newUrl) : null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = widget.post.getAvatarUrl();
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -2069,27 +2049,13 @@ class _PostAvatarState extends State<_PostAvatar> {
         flairName: widget.post.flairName,
         flairBgColor: widget.post.flairBgColor,
         flairColor: widget.post.flairColor,
-        avatar: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: widget.theme.colorScheme.outlineVariant,
-              width: 1,
-            ),
-          ),
-          child: CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.transparent,
-            backgroundImage: _cachedImageProvider,
-            child: _avatarUrl.isEmpty
-                ? Text(
-                    widget.post.username[0].toUpperCase(),
-                    style: TextStyle(
-                      color: widget.theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
+        avatar: SmartAvatar(
+          imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
+          radius: 20,
+          fallbackText: widget.post.username,
+          border: Border.all(
+            color: widget.theme.colorScheme.outlineVariant,
+            width: 1,
           ),
         ),
       ),
