@@ -71,14 +71,16 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
   // UI State
   final GlobalKey _headerKey = GlobalKey();
   final GlobalKey _centerKey = GlobalKey();
-  bool _showTitle = false;
   bool _hasFirstPost = false;
   bool _isCheckTitleVisibilityScheduled = false;
   bool _isRefreshing = false;
 
+  /// 标题是否显示（用 ValueNotifier 隔离 AppBar 更新）
+  final ValueNotifier<bool> _showTitleNotifier = ValueNotifier<bool>(false);
+  /// AppBar 是否有阴影（用 ValueNotifier 隔离 AppBar 更新）
+  final ValueNotifier<bool> _isScrolledUnderNotifier = ValueNotifier<bool>(false);
   /// 展开头部是否可见（用 ValueNotifier 隔离 UI 更新）
   final ValueNotifier<bool> _isOverlayVisibleNotifier = ValueNotifier<bool>(false);
-  bool _isScrolledUnder = false;
   bool _isSwitchingMode = false;  // 切换热门回复模式
   late final AnimationController _expandController;
   late final Animation<Offset> _animation;
@@ -150,6 +152,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     _throttleTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _expandController.dispose();
+    _showTitleNotifier.dispose();
+    _isScrolledUnderNotifier.dispose();
     _isOverlayVisibleNotifier.dispose();
     _controller.scrollController.removeListener(_onScroll);
     _screenTrack.stop();
@@ -179,26 +183,17 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     final ctx = _headerKey.currentContext;
 
     if (ctx == null) {
-      if (_hasFirstPost && !_showTitle) {
-        setState(() => _showTitle = true);
+      if (_hasFirstPost) {
+        _showTitleNotifier.value = true;
       }
-      final shouldScrolledUnder = !_hasFirstPost || true;
-      if (_isScrolledUnder != shouldScrolledUnder) {
-        setState(() => _isScrolledUnder = shouldScrolledUnder);
-      }
+      _isScrolledUnderNotifier.value = true;
     } else {
       final box = ctx.findRenderObject() as RenderBox?;
       if (box != null && box.hasSize) {
         final position = box.localToGlobal(Offset.zero);
         final headerVisible = position.dy >= barHeight;
-        final shouldShowTitle = !headerVisible;
-        final shouldScrolledUnder = !_hasFirstPost || !headerVisible;
-        if (shouldShowTitle != _showTitle || shouldScrolledUnder != _isScrolledUnder) {
-          setState(() {
-            _showTitle = shouldShowTitle;
-            _isScrolledUnder = shouldScrolledUnder;
-          });
-        }
+        _showTitleNotifier.value = !headerVisible;
+        _isScrolledUnderNotifier.value = !_hasFirstPost || !headerVisible;
       }
     }
   }
@@ -265,36 +260,42 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
   }) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
-      child: AnimatedBuilder(
-        animation: _expandController,
-        builder: (context, child) {
-          final targetElevation = _isScrolledUnder ? 3.0 : 0.0;
-          final currentElevation = targetElevation * (1.0 - _expandController.value);
-          final expandProgress = _expandController.value;
-          final shouldShowTitle = _showTitle || !_hasFirstPost;
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _showTitleNotifier,
+        builder: (context, showTitle, _) => ValueListenableBuilder<bool>(
+          valueListenable: _isScrolledUnderNotifier,
+          builder: (context, isScrolledUnder, _) => AnimatedBuilder(
+            animation: _expandController,
+            builder: (context, child) {
+              final targetElevation = isScrolledUnder ? 3.0 : 0.0;
+              final currentElevation = targetElevation * (1.0 - _expandController.value);
+              final expandProgress = _expandController.value;
+              final shouldShowTitle = showTitle || !_hasFirstPost;
 
-          return AppBar(
-            automaticallyImplyLeading: !widget.embeddedMode,
-            elevation: currentElevation,
-            scrolledUnderElevation: currentElevation,
-            shadowColor: Colors.transparent,
-            surfaceTintColor: theme.colorScheme.surfaceTint.withValues(alpha:(1.0 - expandProgress).clamp(0.0, 1.0)),
-            backgroundColor: theme.colorScheme.surface,
-            title: _buildAppBarTitle(
-              theme: theme,
-              detail: detail,
-              shouldShowTitle: shouldShowTitle,
-              expandProgress: expandProgress,
-            ),
-            centerTitle: false,
-            actions: _buildAppBarActions(
-              detail: detail,
-              notifier: notifier,
-              shouldShowTitle: shouldShowTitle,
-              expandProgress: expandProgress,
-            ),
-          );
-        },
+              return AppBar(
+                automaticallyImplyLeading: !widget.embeddedMode,
+                elevation: currentElevation,
+                scrolledUnderElevation: currentElevation,
+                shadowColor: Colors.transparent,
+                surfaceTintColor: theme.colorScheme.surfaceTint.withValues(alpha:(1.0 - expandProgress).clamp(0.0, 1.0)),
+                backgroundColor: theme.colorScheme.surface,
+                title: _buildAppBarTitle(
+                  theme: theme,
+                  detail: detail,
+                  shouldShowTitle: shouldShowTitle,
+                  expandProgress: expandProgress,
+                ),
+                centerTitle: false,
+                actions: _buildAppBarActions(
+                  detail: detail,
+                  notifier: notifier,
+                  shouldShowTitle: shouldShowTitle,
+                  expandProgress: expandProgress,
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
