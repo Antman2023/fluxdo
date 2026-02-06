@@ -21,6 +21,27 @@ class DiscourseWidgetFactory extends WidgetFactory {
   });
 
   @override
+  Widget? buildListMarker(
+    BuildTree tree,
+    InheritedProperties resolved,
+    String listStyleType,
+    int index,
+  ) {
+    final markerText = getListMarkerText(listStyleType, index);
+    // 有序列表：使用等宽数字，避免 "1" 比其他数字窄导致的对齐问题
+    if (markerText.isNotEmpty) {
+      return Text(
+        markerText,
+        style: resolved.prepareTextStyle().copyWith(
+          // 启用表格数字特性，让所有数字宽度一致
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      );
+    }
+    return super.buildListMarker(tree, resolved, listStyleType, index);
+  }
+
+  @override
   Widget? buildImage(BuildTree tree, ImageMetadata data) {
     final url = data.sources.firstOrNull?.url;
     if (url == null) return super.buildImage(tree, data);

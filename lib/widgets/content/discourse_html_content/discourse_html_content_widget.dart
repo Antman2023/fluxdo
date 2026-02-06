@@ -245,6 +245,27 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
             'text-decoration': 'none',
           };
         }
+        // 无序列表样式
+        if (element.localName == 'ul') {
+          return {
+            'padding-left': '20px',
+            'margin': '8px 0',
+          };
+        }
+        // 有序列表样式
+        if (element.localName == 'ol') {
+          return {
+            'padding-left': '20px',
+            'margin': '8px 0',
+          };
+        }
+        // 列表项样式
+        if (element.localName == 'li') {
+          return {
+            'margin': '4px 0',
+            'line-height': '1.5',
+          };
+        }
         return {};
       },
       onTapUrl: (url) async {
