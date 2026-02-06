@@ -38,7 +38,6 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   bool _isSubmitting = false;
   bool _showPreview = false;
   String? _templateContent;
-  // ignore: unused_field
   bool _isLoadingDraft = false;
 
   final PageController _pageController = PageController();
@@ -218,7 +217,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     _titleController.removeListener(_onDraftContentChanged);
     _contentController.removeListener(_onDraftContentChanged);
 
-    // 关闭时立即保存草稿（如果有内容）
+    // 关闭时处理草稿：有内容则保存，无内容则删除
     if (_titleController.text.trim().isNotEmpty || _contentController.text.trim().isNotEmpty) {
       final data = DraftData(
         title: _titleController.text,
@@ -229,6 +228,9 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
         archetypeId: 'regular',
       );
       _draftController.saveNow(data);
+    } else {
+      // 内容为空，删除草稿
+      _draftController.deleteDraft();
     }
     _draftController.dispose();
 
@@ -451,7 +453,9 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
         ),
         body: categoriesAsync.when(
           data: (categories) {
-            return Column(
+            return Stack(
+              children: [
+                Column(
               children: [
                 Expanded(
                   child: PageView(
@@ -643,7 +647,16 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                   ),
                 ),
               ],
-            );
+            ),
+            // 草稿加载遮罩
+            if (_isLoadingDraft)
+              Positioned.fill(
+                child: Container(
+                  color: theme.colorScheme.surface.withValues(alpha: 0.7),
+                  child: const Center(child: LoadingSpinner()),
+                ),
+              ),
+          ]);
           },
           loading: () => const Center(child: LoadingSpinner()),
           error: (err, stack) => Center(child: Text('加载分类失败: $err')),

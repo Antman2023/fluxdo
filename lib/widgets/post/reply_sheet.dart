@@ -9,6 +9,7 @@ import '../../services/presence_service.dart';
 import '../../services/emoji_handler.dart';
 import '../../services/draft_controller.dart';
 import '../common/smart_avatar.dart';
+import '../common/loading_spinner.dart';
 
 /// 显示回复底部弹框
 /// [topicId] 话题 ID (回复话题/帖子时必需)
@@ -277,20 +278,27 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     _contentController.removeListener(_onContentChanged);
     _titleController.removeListener(_onContentChanged);
 
-    // 关闭时立即保存草稿（如果有内容）
-    if (_draftController != null && _contentController.text.trim().isNotEmpty) {
-      final data = DraftData(
-        reply: _contentController.text,
-        title: _isPrivateMessage ? _titleController.text : null,
-        action: _isPrivateMessage ? 'privateMessage' : 'reply',
-        replyToPostNumber: widget.replyToPost?.postNumber,
-        recipients: _isPrivateMessage && widget.targetUsername != null
-            ? [widget.targetUsername!]
-            : null,
-        archetypeId: _isPrivateMessage ? 'private_message' : 'regular',
-      );
-      // 异步保存，不阻塞 dispose
-      _draftController!.saveNow(data);
+    // 关闭时处理草稿：有内容则保存，无内容则删除
+    final hasContent = _contentController.text.trim().isNotEmpty ||
+        (_isPrivateMessage && _titleController.text.trim().isNotEmpty);
+    if (_draftController != null) {
+      if (hasContent) {
+        final data = DraftData(
+          reply: _contentController.text,
+          title: _isPrivateMessage ? _titleController.text : null,
+          action: _isPrivateMessage ? 'privateMessage' : 'reply',
+          replyToPostNumber: widget.replyToPost?.postNumber,
+          recipients: _isPrivateMessage && widget.targetUsername != null
+              ? [widget.targetUsername!]
+              : null,
+          archetypeId: _isPrivateMessage ? 'private_message' : 'regular',
+        );
+        // 异步保存，不阻塞 dispose
+        _draftController!.saveNow(data);
+      } else {
+        // 内容为空，删除草稿
+        _draftController!.deleteDraft();
+      }
     }
     _draftController?.dispose();
 
@@ -429,12 +437,14 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                 setState(() => _showEmojiPanel = false);
               }
             },
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Column(
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: Column(
                 children: [
                   // 1. 顶部 Header (固定)
                   Column(
@@ -601,6 +611,18 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                 ],
               ),
             ),
+            // 草稿加载遮罩
+            if (_isLoadingDraft)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface.withValues(alpha: 0.7),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: const Center(child: LoadingSpinner()),
+                ),
+              ),
+          ]),
           ),
         );
       },

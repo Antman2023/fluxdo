@@ -10,9 +10,5 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.pengyongteng.fluxdo</string>
 	</array>
-	<key>com.apple.developer.associated-domains</key>
-	<array>
-		<string>applinks:linux.do</string>
-	</array>
 </dict>
 </plist>
