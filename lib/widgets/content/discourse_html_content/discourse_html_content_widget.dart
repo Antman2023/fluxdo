@@ -78,7 +78,6 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
   late final DiscourseWidgetFactory _widgetFactory;
   late final List<String> _galleryImages;
   final Pangu _pangu = Pangu();
-  int _rebuildKey = 0;
 
   @override
   void initState() {
@@ -214,7 +213,6 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
     final processedHtml = _preprocessHtml(widget.html, enablePanguSpacing);
 
     final htmlWidget = HtmlWidget(
-      key: ValueKey(_rebuildKey),
       processedHtml,
       textStyle: widget.textStyle,
       factoryBuilder: () => _widgetFactory,
@@ -480,18 +478,15 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
 
     // 处理 Spoiler 隐藏内容 (class="spoiler" 或 class="spoiled")
     if (element.classes.contains('spoiler') || element.classes.contains('spoiled')) {
-      final spoilerWidget = buildSpoiler(
-        context: context,
-        theme: theme,
-        element: element,
-        htmlBuilder: htmlBuilder,
-        textStyle: widget.textStyle,
-        onStateChanged: () => setState(() => _rebuildKey++),
+      return InlineCustomWidget(
+        child: buildSpoiler(
+          context: context,
+          theme: theme,
+          element: element,
+          htmlBuilder: htmlBuilder,
+          textStyle: widget.textStyle,
+        ),
       );
-      if (spoilerWidget != null) {
-        return InlineCustomWidget(child: spoilerWidget);
-      }
-      // 返回 null 让默认渲染器处理（已显示状态，可选中）
     }
 
     // 处理 details 折叠块
