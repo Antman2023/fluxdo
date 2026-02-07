@@ -1,74 +1,24 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import '../../lazy_load_scope.dart';
+import 'spoiler_particles.dart';
 
-/// Spoiler 缓存 key 前缀
-const _spoilerPrefix = 'spoiler:';
-
-/// 粒子数据
-class _Particle {
-  double x;
-  double y;
-  double vx;
-  double vy;
-  double life; // 剩余生命 0~1
-  double maxLife; // 最大生命（用于计算 alpha）
-  int alphaType; // 0=0.3, 1=0.6, 2=1.0
-
-  _Particle({
-    required this.x,
-    required this.y,
-    required this.vx,
-    required this.vy,
-    required this.life,
-    required this.maxLife,
-    required this.alphaType,
-  });
-}
-
-/// 粒子绘制器
-class _ParticlePainter extends CustomPainter {
-  final List<_Particle> particles;
-  final bool isDark;
-
-  _ParticlePainter({
-    required this.particles,
-    required this.isDark,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final baseColor = isDark ? Colors.white : Colors.grey.shade800;
-    const alphaLevels = [0.3, 0.6, 1.0];
-
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..strokeCap = StrokeCap.round;
-
-    for (final p in particles) {
-      paint.color = baseColor.withValues(alpha: alphaLevels[p.alphaType] * p.life);
-      // strokeWidth 1.2/1.4 对应半径 0.6/0.7
-      final radius = p.alphaType == 0 ? 0.7 : 0.6;
-      canvas.drawCircle(Offset(p.x, p.y), radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_ParticlePainter oldDelegate) => true;
-}
-
-/// Spoiler 隐藏内容组件
+/// 块级 Spoiler 隐藏内容组件
 class SpoilerContent extends StatefulWidget {
   final String innerHtml;
   final Widget Function(String html, TextStyle? textStyle) htmlBuilder;
   final TextStyle? textStyle;
+  /// 外部传入的揭示状态
+  final bool isRevealed;
+  /// 揭示回调
+  final VoidCallback? onReveal;
 
   const SpoilerContent({
     super.key,
     required this.innerHtml,
     required this.htmlBuilder,
     this.textStyle,
+    this.isRevealed = false,
+    this.onReveal,
   });
 
   @override
@@ -77,113 +27,61 @@ class SpoilerContent extends StatefulWidget {
 
 class _SpoilerContentState extends State<SpoilerContent>
     with SingleTickerProviderStateMixin {
-  bool _isRevealed = false;
-  final List<_Particle> _particles = [];
-  final Random _random = Random();
+  final SpoilerParticleSystem _particleSystem = SpoilerParticleSystem();
   Ticker? _ticker;
   Size? _size;
-  int _maxParticles = 150;
   Duration _lastTime = Duration.zero;
-
-  String get _cacheKey => '$_spoilerPrefix${widget.innerHtml.hashCode}';
+  // 本地揭示状态（点击后立即更新，不等待父组件重建）
+  bool _isRevealed = false;
 
   @override
   void initState() {
     super.initState();
+    _isRevealed = widget.isRevealed;
+    if (!_isRevealed) {
+      _ticker = createTicker(_onTick)..start();
+    }
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _isRevealed = LazyLoadScope.isLoaded(context, _cacheKey);
-    if (_isRevealed) {
+  void didUpdateWidget(SpoilerContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 同步外部状态
+    if (widget.isRevealed && !_isRevealed) {
+      _isRevealed = true;
       _ticker?.stop();
+    } else if (!widget.isRevealed && _isRevealed) {
+      // 从已揭示变为未揭示（重新渲染）
+      _isRevealed = false;
+      _particleSystem.clear();
+      _size = null;
+      _ticker ??= createTicker(_onTick);
+      _ticker!.start();
     }
   }
 
   void _initParticles(Size size) {
     _size = size;
-    // Telegram: (width / 6dp) * 30，这里用类似密度
-    // 每 2x2 像素约一个粒子
-    _maxParticles = ((size.width * size.height) / 4).clamp(200, 2000).toInt();
-
-    // 初始填充粒子
-    _particles.clear();
-    for (int i = 0; i < _maxParticles; i++) {
-      _spawnParticle();
-    }
-
-    // 启动动画
-    _ticker ??= createTicker(_onTick)..start();
-  }
-
-  void _spawnParticle() {
-    if (_size == null) return;
-
-    // 随机方向
-    final angle = _random.nextDouble() * 2 * pi;
-    // Telegram: velocity = 4 + random * 6，范围 [4, 10]
-    // 每帧移动 velocity * dt / 500
-    final velocity = 4 + _random.nextDouble() * 6;
-
-    _particles.add(_Particle(
-      x: _random.nextDouble() * _size!.width,
-      y: _random.nextDouble() * _size!.height,
-      vx: cos(angle) * velocity,
-      vy: sin(angle) * velocity,
-      life: 1.0,
-      maxLife: 1.0 + _random.nextDouble() * 2.0, // 1-3秒生命
-      alphaType: _random.nextInt(3),
-    ));
+    _particleSystem.initForSize(size);
   }
 
   void _onTick(Duration elapsed) {
     if (!mounted || _isRevealed || _size == null) return;
 
-    // 计算时间增量（毫秒）
     final dtMs = (elapsed - _lastTime).inMilliseconds.toDouble();
     _lastTime = elapsed;
     if (dtMs <= 0 || dtMs > 100) return;
 
-    // Telegram: hdt = velocity * dt / 500
-    final dtFactor = dtMs / 500.0;
-
-    final toRemove = <_Particle>[];
-
-    for (final p in _particles) {
-      // 更新位置
-      p.x += p.vx * dtFactor;
-      p.y += p.vy * dtFactor;
-
-      // 更新生命（秒）
-      p.life -= (dtMs / 1000.0) / p.maxLife;
-
-      // 检查是否死亡或出界
-      if (p.life <= 0 ||
-          p.x < -5 || p.x > _size!.width + 5 ||
-          p.y < -5 || p.y > _size!.height + 5) {
-        toRemove.add(p);
-      }
-    }
-
-    // 移除死亡粒子
-    for (final p in toRemove) {
-      _particles.remove(p);
-    }
-
-    // 补充新粒子
-    while (_particles.length < _maxParticles) {
-      _spawnParticle();
-    }
-
+    _particleSystem.update(dtMs);
     setState(() {});
   }
 
   void _reveal() {
     if (_isRevealed) return;
-    LazyLoadScope.markLoaded(context, _cacheKey);
+    _isRevealed = true;
     _ticker?.stop();
-    setState(() => _isRevealed = true);
+    widget.onReveal?.call();
+    setState(() {});
   }
 
   @override
@@ -202,6 +100,8 @@ class _SpoilerContentState extends State<SpoilerContent>
     }
 
     final isDark = theme.brightness == Brightness.dark;
+    // 使用页面背景色，完全遮挡内部内容（包括 code 背景）
+    final backgroundColor = theme.scaffoldBackgroundColor;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -219,7 +119,7 @@ class _SpoilerContentState extends State<SpoilerContent>
               maintainState: true,
               child: content,
             ),
-            // 粒子层
+            // 粒子层（带不透明背景）
             Positioned.fill(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -234,9 +134,10 @@ class _SpoilerContentState extends State<SpoilerContent>
 
                   return RepaintBoundary(
                     child: CustomPaint(
-                      painter: _ParticlePainter(
-                        particles: _particles,
+                      painter: SpoilerParticlePainter(
+                        particles: _particleSystem.particles,
                         isDark: isDark,
+                        backgroundColor: backgroundColor,
                       ),
                     ),
                   );
@@ -250,13 +151,15 @@ class _SpoilerContentState extends State<SpoilerContent>
   }
 }
 
-/// 构建 Spoiler 隐藏内容
+/// 构建块级 Spoiler 隐藏内容
 Widget buildSpoiler({
   required BuildContext context,
   required ThemeData theme,
   required dynamic element,
   required Widget Function(String html, TextStyle? textStyle) htmlBuilder,
   TextStyle? textStyle,
+  bool isRevealed = false,
+  VoidCallback? onReveal,
 }) {
   final innerHtml = element.innerHtml as String;
 
@@ -264,5 +167,7 @@ Widget buildSpoiler({
     innerHtml: innerHtml,
     htmlBuilder: htmlBuilder,
     textStyle: textStyle,
+    isRevealed: isRevealed,
+    onReveal: onReveal,
   );
 }

@@ -25,9 +25,10 @@ import 'builders/poll_builder.dart';
 import 'builders/math_builder.dart';
 import 'builders/chat_transcript_builder.dart';
 import 'builders/iframe_builder.dart';
-import 'builders/mention_builder.dart';
-import 'builders/inline_code_builder.dart';
 import 'builders/image_grid_builder.dart';
+import 'builders/inline_spoiler_builder.dart';
+import 'builders/inline_decorator_builder.dart';
+import 'builders/mention_builder.dart';
 
 /// Discourse HTML 内容渲染 Widget
 /// 封装了所有自定义渲染逻辑
@@ -79,6 +80,9 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
   late final List<String> _galleryImages;
   final Pangu _pangu = Pangu();
 
+  /// 已揭示的内联 spoiler ID 集合
+  final Set<String> _revealedSpoilers = {};
+
   @override
   void initState() {
     super.initState();
@@ -128,7 +132,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
     return galleryImages;
   }
 
-  /// 预处理 HTML：注入用户状态 emoji、链接点击次数，修复 mention 圆角问题
+  /// 预处理 HTML：注入用户状态 emoji、链接点击次数，添加内联元素 padding
   String _preprocessHtml(String html, bool enablePanguSpacing) {
     var processedHtml = html;
 
@@ -169,17 +173,60 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       }
     }
 
-    // 2. 给 mention 链接后面添加零宽度空格，确保右边圆角正确渲染
+    // 2. 给内联代码添加空白占位（WidgetSpan 作为边距空间）
+    processedHtml = processedHtml.replaceAllMapped(
+      RegExp(r'<code>([^<]*)</code>', caseSensitive: false),
+      (match) {
+        final content = match.group(1)!;
+        return '<span class="code-spacer"></span><code>$content</code><span class="code-spacer"></span>';
+      },
+    );
+
+    // 3. 给 mention 链接后面添加零宽度空格，确保右边圆角正确渲染
     processedHtml = processedHtml.replaceAllMapped(
       RegExp(r'(<a[^>]*class="[^"]*mention[^"]*"[^>]*>.*?</a>)'),
       (match) => '${match.group(1)}\u200B',
     );
+
+    // 5. 注入链接点击数（只在顶层处理，避免嵌套重复）
+    if (widget.linkCounts != null && widget.fullHtml == null) {
+      processedHtml = _injectClickCounts(processedHtml);
+    }
 
     if (enablePanguSpacing) {
       processedHtml = _pangu.spacingText(processedHtml);
     }
 
     return processedHtml;
+  }
+
+  /// 注入链接点击数到 HTML
+  String _injectClickCounts(String html) {
+    if (widget.linkCounts == null) return html;
+
+    var result = html;
+    for (final lc in widget.linkCounts!) {
+      if (lc.clicks <= 0) continue;
+
+      // 匹配链接（排除已有点击数标记的、mention、hashtag 等特殊链接）
+      // 使用 data-clicks 属性标记已处理
+      final escapedUrl = RegExp.escape(lc.url);
+      final pattern = RegExp(
+        '(<a(?![^>]*data-clicks)[^>]*href="[^"]*$escapedUrl[^"]*"[^>]*>)(.*?)(</a>)(?!\\s*<span[^>]*class="[^"]*click-count)',
+        caseSensitive: false,
+      );
+
+      final formattedCount = _formatClickCount(lc.clicks);
+      result = result.replaceAllMapped(pattern, (match) {
+        final openTag = match.group(1)!;
+        final content = match.group(2)!;
+        final closeTag = match.group(3)!;
+        // 添加 data-clicks 属性防止重复处理，追加点击数 span
+        final newOpenTag = openTag.replaceFirst('<a', '<a data-clicks="$formattedCount"');
+        return '$newOpenTag$content$closeTag <span class="click-count">\u2009$formattedCount\u2009</span>';
+      });
+    }
+    return result;
   }
 
   /// 追踪链接点击
@@ -218,9 +265,28 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       factoryBuilder: () => _widgetFactory,
       customWidgetBuilder: (element) => _buildCustomWidget(context, element),
       customStylesBuilder: (element) {
+        final isDark = theme.brightness == Brightness.dark;
+
+        // 检查元素是否在 spoiler 内
+        bool isInSpoiler = false;
+        var parent = element.parent;
+        while (parent != null) {
+          if (parent.classes.contains('spoiler') || parent.classes.contains('spoiled')) {
+            isInSpoiler = true;
+            break;
+          }
+          parent = parent.parent;
+        }
+
         // 修复 Emoji 垂直居中问题
         if (element.classes.contains('emoji')) {
            return {'vertical-align': 'middle'};
+        }
+
+        // 内联代码样式：回归文档流，支持自然换行
+        // 注意：padding 和 border-radius 会导致 WidgetSpan，只使用可内联的属性
+        if (element.localName == 'code' && element.parent?.localName != 'pre') {
+          return getInlineCodeStyles(isDark, isInSpoiler: isInSpoiler);
         }
 
         // Callout 标题内的链接继承标题颜色
@@ -239,7 +305,6 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         if (widget.compact && element.localName == 'p') {
           return {'margin': '0'};
         }
-        // 用户提及和内联代码已通过 customWidgetBuilder 渲染
         // 优化链接样式
         if (element.localName == 'a') {
           return {
@@ -267,6 +332,11 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
             'margin': '4px 0',
             'line-height': '1.5',
           };
+        }
+        // 内联 spoiler：使用特殊 font-family 标记，让文本正常渲染但可被识别
+        if (element.localName == 'span' &&
+            (element.classes.contains('spoiler') || element.classes.contains('spoiled'))) {
+          return getSpoilerStyles();
         }
         return {};
       },
@@ -331,15 +401,35 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       },
     );
 
+    // 用 SpoilerOverlay 和 InlineDecoratorOverlay 包裹
+    Widget result = SpoilerOverlay(
+      revealedSpoilers: _revealedSpoilers,
+      onReveal: (id) {
+        setState(() {
+          _revealedSpoilers.add(id);
+        });
+      },
+      child: InlineDecoratorOverlay(
+        child: htmlWidget,
+      ),
+    );
+
     // 根据参数决定是否包裹 SelectionArea
     if (widget.enableSelectionArea) {
-      return SelectionArea(child: htmlWidget);
+      return SelectionArea(child: result);
     }
-    return htmlWidget;
+    return result;
   }
 
   Widget? _buildCustomWidget(BuildContext context, dynamic element) {
     final theme = Theme.of(context);
+
+    // 处理内联代码空白占位（固定宽度，背景会扩展到这里）
+    if (element.localName == 'span' && element.classes.contains('code-spacer')) {
+      return InlineCustomWidget(
+        child: const SizedBox(width: 4), // 4px 边距空间
+      );
+    }
 
     // 处理 iframe：统一使用 InAppWebView 渲染
     // flutter_widget_from_html 的实现全屏退出后高度异常
@@ -355,7 +445,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       return const SizedBox.shrink();
     }
 
-    // 处理用户提及链接 (a.mention)
+    // 用户提及链接 (a.mention)：直接 WidgetSpan 渲染
     if (element.localName == 'a' && element.classes.contains('mention')) {
       return buildMention(
         context: context,
@@ -365,14 +455,20 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       );
     }
 
-    // 处理内联代码
-    if (element.localName == 'code' && element.parent?.localName != 'pre') {
-      return buildInlineCode(
-        theme: theme,
-        element: element,
-        baseFontSize: widget.textStyle?.fontSize ?? 14.0,
+    // 链接点击数 (span.click-count)：直接 WidgetSpan 渲染
+    if (element.localName == 'span' && element.classes.contains('click-count')) {
+      final count = element.text.trim();
+      final isDark = theme.brightness == Brightness.dark;
+
+      return InlineCustomWidget(
+        child: buildClickCountWidget(
+          count: count,
+          isDark: isDark,
+        ),
       );
     }
+
+    // 内联代码：通过扫描方案渲染背景
 
     // HTML 构建器：用于嵌套渲染
     Widget htmlBuilder(String html, TextStyle? textStyle) {
@@ -476,16 +572,30 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       }
     }
 
-    // 处理 Spoiler 隐藏内容 (class="spoiler" 或 class="spoiled")
+    // 处理 Spoiler 隐藏内容
     if (element.classes.contains('spoiler') || element.classes.contains('spoiled')) {
-      return InlineCustomWidget(
-        child: buildSpoiler(
-          context: context,
-          theme: theme,
-          element: element,
-          htmlBuilder: htmlBuilder,
-          textStyle: widget.textStyle,
-        ),
+      // span.spoiler：返回 null 让文本正常渲染（样式由 customStylesBuilder 设置）
+      // 粒子效果由外层的 SpoilerOverlay 通过 RenderTree 扫描实现
+      if (element.localName == 'span') {
+        return null;
+      }
+      // div.spoiler 等块级元素使用块级方案
+      final innerHtml = element.innerHtml as String;
+      final spoilerId = 'block_spoiler_${innerHtml.hashCode}';
+      final isRevealed = _revealedSpoilers.contains(spoilerId);
+
+      return buildSpoiler(
+        context: context,
+        theme: theme,
+        element: element,
+        htmlBuilder: htmlBuilder,
+        textStyle: widget.textStyle,
+        isRevealed: isRevealed,
+        onReveal: () {
+          setState(() {
+            _revealedSpoilers.add(spoilerId);
+          });
+        },
       );
     }
 
@@ -563,57 +673,10 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       );
     }
 
-    // 处理带点击数的普通链接
-    if (element.localName == 'a' && widget.linkCounts != null) {
-      // 排除 mention 链接和其他特殊链接
-      if (element.classes.contains('mention') ||
-          element.classes.contains('hashtag') ||
-          element.classes.contains('anchor') ||
-          element.classes.contains('back')) {
-        return null;
-      }
-
-      final href = element.attributes['href'] as String?;
-      if (href == null || href.isEmpty) return null;
-
-      // 查找点击数
-      final clickCount = _findClickCount(href);
-      if (clickCount == null) return null;
-
-      // 构建带点击数的链接 widget
-      return _buildLinkWithClickCount(
-        context: context,
-        theme: theme,
-        element: element,
-        href: href,
-        clickCount: clickCount,
-      );
-    }
+    // 带点击数的链接：点击数已通过 _injectClickCounts 注入为 span.click-count
+    // 使用 CSS 样式渲染，回归文档流
 
     return null;
-  }
-
-  /// 查找链接的点击数
-  int? _findClickCount(String url) {
-    if (widget.linkCounts == null) return null;
-
-    for (final lc in widget.linkCounts!) {
-      if (lc.clicks > 0 && _urlMatches(lc.url, url)) {
-        return lc.clicks;
-      }
-    }
-    return null;
-  }
-
-  /// URL 匹配（忽略末尾斜杠和协议差异）
-  bool _urlMatches(String url1, String url2) {
-    final normalized1 = url1
-        .replaceFirst(RegExp(r'^https?://'), '')
-        .replaceFirst(RegExp(r'/$'), '');
-    final normalized2 = url2
-        .replaceFirst(RegExp(r'^https?://'), '')
-        .replaceFirst(RegExp(r'/$'), '');
-    return normalized1 == normalized2;
   }
 
   /// 格式化点击数
@@ -622,83 +685,5 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
       return '${(count / 1000).toStringAsFixed(1)}k';
     }
     return count.toString();
-  }
-
-  /// 构建带点击数的链接 widget
-  Widget _buildLinkWithClickCount({
-    required BuildContext context,
-    required ThemeData theme,
-    required dynamic element,
-    required String href,
-    required int clickCount,
-  }) {
-    final linkText = element.text?.trim() ?? href;
-    final formattedCount = _formatClickCount(clickCount);
-
-    return InlineCustomWidget(
-      child: GestureDetector(
-        onTap: () async {
-          _trackClick(href);
-
-          // 处理用户链接
-          final userMatch = RegExp(r'(?:linux\.do)?/u/([^/?#]+)').firstMatch(href);
-          if (userMatch != null) {
-            final username = userMatch.group(1)!;
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => UserProfilePage(username: username)),
-            );
-            return;
-          }
-
-          // 处理话题链接
-          final topicMatch = RegExp(r'(?:linux\.do)?/t/(?:[^/]+/)?(\d+)(?:/(\d+))?').firstMatch(href);
-          if (topicMatch != null && widget.onInternalLinkTap != null) {
-            final topicId = int.parse(topicMatch.group(1)!);
-            final postNumber = int.tryParse(topicMatch.group(2) ?? '');
-            final slugMatch = RegExp(r'(?:linux\.do)?/t/([^/]+)/\d+').firstMatch(href);
-            final slug = (slugMatch != null && slugMatch.group(1) != 'topic')
-                ? slugMatch.group(1)
-                : null;
-            widget.onInternalLinkTap!(topicId, slug, postNumber);
-            return;
-          }
-
-          // 外部链接
-          await launchExternalLink(context, href);
-        },
-        child: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: linkText,
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              const WidgetSpan(child: SizedBox(width: 4)),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    formattedCount,
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 10,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
