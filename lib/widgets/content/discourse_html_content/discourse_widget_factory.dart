@@ -6,6 +6,7 @@ import '../../../services/discourse_cache_manager.dart';
 
 import 'image_utils.dart';
 import 'lazy_image.dart';
+import '../../common/hero_image.dart';
 
 /// 自定义 WidgetFactory，仅用于接管图片渲染
 class DiscourseWidgetFactory extends WidgetFactory {
@@ -132,8 +133,9 @@ class DiscourseWidgetFactory extends WidgetFactory {
                ? Image(
                    image: imageProvider,
                    fit: BoxFit.contain,
-                   width: isEmoji ? displaySize : width,
-                   height: isEmoji ? displaySize : height,
+                   // Emoji 使用固定尺寸，普通图片让其自适应（由外层约束控制）
+                   width: isEmoji ? displaySize : null,
+                   height: isEmoji ? displaySize : null,
                    loadingBuilder: (context, child, loadingProgress) {
                      if (loadingProgress == null) return child;
                      return SizedBox(
@@ -182,7 +184,9 @@ class DiscourseWidgetFactory extends WidgetFactory {
            
            // 非 Emoji 非画廊图片：添加点击查看功能
            if (resolvedUrl != null && imageProvider != null) {
-             return GestureDetector(
+             // 使用 HeroImage 替代标准 Hero，支持可见性控制
+             Widget child = HeroImage(
+               heroTag: heroTag,
                onTap: () {
                  final originalUrl = DiscourseImageUtils.getOriginalUrl(resolvedUrl);
                  DiscourseImageUtils.openViewer(
@@ -192,11 +196,21 @@ class DiscourseWidgetFactory extends WidgetFactory {
                    thumbnailUrl: resolvedUrl,
                  );
                },
-               child: Hero(
-                 tag: heroTag,
-                 child: imageWidget,
-               ),
+               child: imageWidget,
              );
+
+             // 如果有尺寸信息，包裹 AspectRatio 以防止宽图出现空白
+             if (width != null && height != null && width > 0 && height > 0) {
+               return ConstrainedBox(
+                 constraints: BoxConstraints(maxWidth: width),
+                 child: AspectRatio(
+                   aspectRatio: width / height,
+                   child: child,
+                 ),
+               );
+             }
+
+             return child;
            }
            return imageWidget;
         }
