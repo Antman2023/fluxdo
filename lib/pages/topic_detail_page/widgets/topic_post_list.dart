@@ -3,7 +3,7 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../models/topic.dart';
 import '../../../providers/message_bus_providers.dart';
 import '../../../utils/responsive.dart';
-import '../../../widgets/post/post_item.dart';
+import '../../../widgets/post/post_item/post_item.dart';
 import '../../../widgets/post/post_item_skeleton.dart';
 import 'topic_detail_header.dart';
 import 'typing_indicator.dart';
