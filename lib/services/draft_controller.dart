@@ -43,6 +43,9 @@ class DraftController {
   /// 是否已释放
   bool _disposed = false;
 
+  /// 当前正在进行的保存操作
+  Future<void>? _saveFuture;
+
   DraftController({
     required this.draftKey,
     DiscourseService? service,
@@ -116,6 +119,12 @@ class DraftController {
 
     _statusNotifier.value = DraftSaveStatus.saving;
 
+    final future = _doSave(dataWithTime, data);
+    _saveFuture = future;
+    await future;
+  }
+
+  Future<void> _doSave(DraftData dataWithTime, DraftData data) async {
     try {
       final newSequence = await _service.saveDraft(
         draftKey: draftKey,
@@ -133,12 +142,23 @@ class DraftController {
       if (!_disposed) {
         _statusNotifier.value = DraftSaveStatus.error;
       }
+    } finally {
+      if (_saveFuture != null) {
+        _saveFuture = null;
+      }
     }
   }
 
   /// 删除草稿
+  /// 会等待正在进行的保存操作完成后再删除，避免并发竞态
   Future<void> deleteDraft() async {
     _debounceTimer?.cancel();
+
+    // 等待正在进行的保存完成，确保拿到最新的 sequence
+    if (_saveFuture != null) {
+      await _saveFuture;
+    }
+
     try {
       await _service.deleteDraft(draftKey, sequence: _sequence);
     } catch (e) {

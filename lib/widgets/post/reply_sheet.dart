@@ -96,6 +96,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
   final _editorKey = GlobalKey<MarkdownEditorState>();
 
   bool _isSubmitting = false;
+  bool _submitted = false; // 提交成功标志，防止 dispose 重新保存草稿
   bool _showEmojiPanel = false;
   bool _isLoadingRaw = false; // 编辑模式：加载原始内容中
   bool _isLoadingDraft = false; // 加载草稿中
@@ -278,10 +279,10 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     _contentController.removeListener(_onContentChanged);
     _titleController.removeListener(_onContentChanged);
 
-    // 关闭时处理草稿：有内容则保存，无内容则删除
-    final hasContent = _contentController.text.trim().isNotEmpty ||
-        (_isPrivateMessage && _titleController.text.trim().isNotEmpty);
-    if (_draftController != null) {
+    // 关闭时处理草稿：已提交则跳过，有内容则保存，无内容则删除
+    if (_draftController != null && !_submitted) {
+      final hasContent = _contentController.text.trim().isNotEmpty ||
+          (_isPrivateMessage && _titleController.text.trim().isNotEmpty);
       if (hasContent) {
         final data = DraftData(
           reply: _contentController.text,
@@ -358,6 +359,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         );
         // 发送成功后删除草稿
         await _draftController?.deleteDraft();
+        _submitted = true;
         if (!mounted) return;
         Navigator.of(context).pop(null); // 私信模式不返回 Post
       } else {
@@ -369,6 +371,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         );
         // 发送成功后删除草稿
         await _draftController?.deleteDraft();
+        _submitted = true;
         if (!mounted) return;
         Navigator.of(context).pop(newPost);
       }

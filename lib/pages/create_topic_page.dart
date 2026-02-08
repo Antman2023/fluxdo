@@ -36,6 +36,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   Category? _selectedCategory;
   List<String> _selectedTags = [];
   bool _isSubmitting = false;
+  bool _submitted = false; // 提交成功标志，防止 dispose 重新保存草稿
   bool _showPreview = false;
   String? _templateContent;
   bool _isLoadingDraft = false;
@@ -217,20 +218,22 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     _titleController.removeListener(_onDraftContentChanged);
     _contentController.removeListener(_onDraftContentChanged);
 
-    // 关闭时处理草稿：有内容则保存，无内容则删除
-    if (_titleController.text.trim().isNotEmpty || _contentController.text.trim().isNotEmpty) {
-      final data = DraftData(
-        title: _titleController.text,
-        reply: _contentController.text,
-        categoryId: _selectedCategory?.id,
-        tags: _selectedTags.isNotEmpty ? _selectedTags : null,
-        action: 'createTopic',
-        archetypeId: 'regular',
-      );
-      _draftController.saveNow(data);
-    } else {
-      // 内容为空，删除草稿
-      _draftController.deleteDraft();
+    // 关闭时处理草稿：已提交则跳过，有内容则保存，无内容则删除
+    if (!_submitted) {
+      if (_titleController.text.trim().isNotEmpty || _contentController.text.trim().isNotEmpty) {
+        final data = DraftData(
+          title: _titleController.text,
+          reply: _contentController.text,
+          categoryId: _selectedCategory?.id,
+          tags: _selectedTags.isNotEmpty ? _selectedTags : null,
+          action: 'createTopic',
+          archetypeId: 'regular',
+        );
+        _draftController.saveNow(data);
+      } else {
+        // 内容为空，删除草稿
+        _draftController.deleteDraft();
+      }
     }
     _draftController.dispose();
 
@@ -354,6 +357,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
       // 发送成功后删除草稿
       await _draftController.deleteDraft();
+      _submitted = true;
 
       if (!mounted) return;
       Navigator.of(context).pop(topicId);
