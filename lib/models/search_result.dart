@@ -51,7 +51,9 @@ class SearchResult {
   }
 
   bool get isEmpty => posts.isEmpty && users.isEmpty;
-  bool get hasMorePosts => groupedResult.morePosts;
+  /// 是否有更多帖子结果
+  /// 全页面搜索使用 more_full_page_results，头部搜索使用 more_posts
+  bool get hasMorePosts => groupedResult.moreFullPageResults || groupedResult.morePosts;
   bool get hasMoreUsers => groupedResult.moreUsers;
 }
 

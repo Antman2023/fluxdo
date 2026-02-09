@@ -234,6 +234,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       final result = await service.search(
         query: searchQuery,
         page: _currentPage,
+        typeFilter: 'topic',
       );
 
       setState(() {

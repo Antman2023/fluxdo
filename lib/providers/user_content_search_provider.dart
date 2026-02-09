@@ -197,7 +197,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         fullQuery = '$fullQuery order:${sortOrder.value}';
       }
 
-      final result = await service.search(query: fullQuery, page: 1);
+      final result = await service.search(query: fullQuery, page: 1, typeFilter: 'topic');
 
       state = state.copyWith(
         results: result.posts,
@@ -233,7 +233,7 @@ class UserContentSearchNotifier extends StateNotifier<UserContentSearchState> {
         fullQuery = '$fullQuery order:${sortOrder.value}';
       }
 
-      final result = await service.search(query: fullQuery, page: nextPage);
+      final result = await service.search(query: fullQuery, page: nextPage, typeFilter: 'topic');
 
       state = state.copyWith(
         results: [...state.results, ...result.posts],

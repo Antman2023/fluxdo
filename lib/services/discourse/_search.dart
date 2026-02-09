@@ -3,15 +3,20 @@ part of 'discourse_service.dart';
 /// 搜索相关
 mixin _SearchMixin on _DiscourseServiceBase {
   /// 搜索帖子/用户
+  ///
+  /// [typeFilter] 用于指定搜索类型，可选值：topic, post, user, category, tag
+  /// 注意：分页只有在指定 typeFilter 时才会生效
   Future<SearchResult> search({
     required String query,
     int page = 1,
+    String? typeFilter,
   }) async {
     final response = await _dio.get(
       '/search.json',
       queryParameters: {
         'q': query,
         if (page > 1) 'page': page,
+        if (typeFilter != null) 'type_filter': typeFilter,
       },
     );
     return SearchResult.fromJson(response.data);
