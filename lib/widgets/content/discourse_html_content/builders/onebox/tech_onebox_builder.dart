@@ -523,6 +523,6 @@ class _StatBox extends StatelessWidget {
 
 Future<void> _launchUrl(BuildContext context, String url) async {
   if (url.isEmpty) return;
-  await launchExternalLink(context, url);
+  await launchContentLink(context, url);
 }
 

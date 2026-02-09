@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:pangutext/pangutext.dart';
 import '../../../constants.dart';
 import '../../../models/topic.dart';
-import '../../../pages/user_profile_page.dart';
-import '../../../pages/webview_page.dart';
 import '../../../providers/preferences_provider.dart';
 import '../../../services/discourse/discourse_service.dart';
 import '../../../services/emoji_handler.dart';
-import '../../../utils/url_helper.dart';
 import '../../../utils/link_launcher.dart';
 import 'discourse_widget_factory.dart';
 import 'builders/quote_card_builder.dart';
@@ -317,59 +313,12 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         // 追踪链接点击（fire-and-forget）
         _trackClick(url);
 
-        // 1. 识别用户链接 /u/username 或 linux.do/u/username
-        final userMatch = RegExp(r'(?:linux\.do)?/u/([^/?#]+)').firstMatch(url);
-        if (userMatch != null) {
-          final username = userMatch.group(1)!;
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => UserProfilePage(username: username)),
-          );
-          return true;
-        }
-
-        // 2. 解析 linux.do 内部话题链接
-        // 支持格式: https://linux.do/t/topic/123, /t/topic/123, https://linux.do/t/some-slug/123/5
-        final topicMatch = RegExp(r'(?:linux\.do)?/t/(?:[^/]+/)?(\d+)(?:/(\d+))?').firstMatch(url);
-        if (topicMatch != null && widget.onInternalLinkTap != null) {
-          final topicId = int.parse(topicMatch.group(1)!);
-          final postNumber = int.tryParse(topicMatch.group(2) ?? '');
-          // 尝试提取 slug (如果有的话)
-          final slugMatch = RegExp(r'(?:linux\.do)?/t/([^/]+)/\d+').firstMatch(url);
-          final slug = (slugMatch != null && slugMatch.group(1) != 'topic')
-              ? slugMatch.group(1)
-              : null;
-          widget.onInternalLinkTap!(topicId, slug, postNumber);
-          return true;
-        }
-
-        // 3. 下载附件链接：识别 /uploads/ 路径
-        if (url.contains('/uploads/')) {
-          final fullUrl = UrlHelper.resolveUrl(url);
-          final uri = Uri.tryParse(fullUrl);
-          if (uri != null) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-          return true;
-        }
-
-        // 4. 其他 linux.do 内部链接：使用内置浏览器
-        if (url.contains('linux.do') || url.startsWith('/')) {
-          final fullUrl = UrlHelper.resolveUrl(url);
-          WebViewPage.open(context, fullUrl);
-          return true;
-        }
-
-        // 5. Email 链接：打开邮件客户端
-        if (url.startsWith('mailto:')) {
-          final uri = Uri.tryParse(url);
-          if (uri != null) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-          return true;
-        }
-
-        // 6. 外部链接：在浏览器中打开
-        await launchExternalLink(context, url);
+        // 统一链接处理逻辑
+        await launchContentLink(
+          context,
+          url,
+          onInternalLinkTap: widget.onInternalLinkTap,
+        );
         return true;
       },
     );

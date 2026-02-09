@@ -38,7 +38,7 @@ Widget buildDefaultOnebox({
   return OneboxContainer(
     onTap: () async {
       if (url.isNotEmpty) {
-        await launchExternalLink(context, url);
+        await launchContentLink(context, url);
       }
     },
     child: Column(
