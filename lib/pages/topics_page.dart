@@ -362,6 +362,15 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
   bool _isLoadingNewTopics = false;
   bool _readyToBuild = false;
 
+  /// 滚动方向切换阈值（像素），超过此距离才触发显示/隐藏切换
+  static const double _scrollDirectionThreshold = 30.0;
+
+  /// 上一次触发方向切换时的滚动位置
+  double _lastDirectionChangeOffset = 0.0;
+
+  /// 上一次触发的滚动方向
+  ScrollDirection _lastTriggeredDirection = ScrollDirection.idle;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -386,9 +395,17 @@ class _TopicListState extends ConsumerState<_TopicList> with AutomaticKeepAliveC
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       ref.read(topicListProvider(widget.filter).notifier).loadMore();
     }
-    // 滚动方向
+    // 滚动方向（带阈值过滤，避免轻微滑动导致反复切换）
     final direction = _scrollController.position.userScrollDirection;
-    if (direction != ScrollDirection.idle) {
+    if (direction == ScrollDirection.idle) return;
+
+    final currentOffset = _scrollController.position.pixels;
+    final scrollDelta = (currentOffset - _lastDirectionChangeOffset).abs();
+
+    // 只有滚动距离超过阈值，且方向与上次触发方向不同时才触发切换
+    if (scrollDelta >= _scrollDirectionThreshold && direction != _lastTriggeredDirection) {
+      _lastDirectionChangeOffset = currentOffset;
+      _lastTriggeredDirection = direction;
       widget.onScrollDirectionChanged(direction);
     }
   }
