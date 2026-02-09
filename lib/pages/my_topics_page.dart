@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/search_filter.dart';
 import '../models/topic.dart';
 import '../providers/discourse_providers.dart';
+import '../providers/user_content_search_provider.dart';
+import '../widgets/search/searchable_app_bar.dart';
+import '../widgets/search/user_content_search_view.dart';
 import '../widgets/topic/topic_card.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/common/error_view.dart';
@@ -56,67 +60,94 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
   @override
   Widget build(BuildContext context) {
     final myTopicsAsync = ref.watch(myTopicsProvider);
+    final searchState = ref.watch(userContentSearchProvider(SearchInType.created));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('我的话题')),
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: myTopicsAsync.when(
-          data: (topics) {
-            if (topics.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.article_outlined, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text('暂无话题', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              );
-            }
+      appBar: SearchableAppBar(
+        title: '我的话题',
+        isSearchMode: searchState.isSearchMode,
+        onSearchPressed: () => ref
+            .read(userContentSearchProvider(SearchInType.created).notifier)
+            .enterSearchMode(),
+        onCloseSearch: () => ref
+            .read(userContentSearchProvider(SearchInType.created).notifier)
+            .exitSearchMode(),
+        onSearch: (query) => ref
+            .read(userContentSearchProvider(SearchInType.created).notifier)
+            .search(query),
+        showFilterButton: searchState.isSearchMode,
+        filterActive: searchState.filter.isNotEmpty,
+        onFilterPressed: () =>
+            showSearchFilterPanel(context, ref, SearchInType.created),
+        searchHint: '在我的话题中搜索...',
+      ),
+      body: searchState.isSearchMode
+          ? const UserContentSearchView(
+              inType: SearchInType.created,
+              emptySearchHint: '输入关键词搜索我的话题',
+            )
+          : _buildTopicList(myTopicsAsync),
+    );
+  }
 
-            return ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: topics.length + 1,
-              itemBuilder: (context, index) {
-                if (index == topics.length) {
-                  final hasMore = ref.read(myTopicsProvider.notifier).hasMore;
-                  if (!hasMore) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(
-                        child: Text(
-                          '没有更多了',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    );
-                  }
-                  if (myTopicsAsync.isLoading) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  return const SizedBox();
-                }
-
-                final topic = topics[index];
-                return TopicCard(
-                  topic: topic,
-                  onTap: () => _onItemTap(topic),
-                );
-              },
+  Widget _buildTopicList(AsyncValue<List<Topic>> myTopicsAsync) {
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: myTopicsAsync.when(
+        data: (topics) {
+          if (topics.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.article_outlined, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('暂无话题', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             );
-          },
-          loading: () => const TopicListSkeleton(),
-          error: (error, stack) => ErrorView(
-            error: error,
-            stackTrace: stack,
-            onRetry: _onRefresh,
-          ),
+          }
+
+          return ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(12),
+            itemCount: topics.length + 1,
+            itemBuilder: (context, index) {
+              if (index == topics.length) {
+                final hasMore = ref.read(myTopicsProvider.notifier).hasMore;
+                if (!hasMore) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text(
+                        '没有更多了',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  );
+                }
+                if (myTopicsAsync.isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return const SizedBox();
+              }
+
+              final topic = topics[index];
+              return TopicCard(
+                topic: topic,
+                onTap: () => _onItemTap(topic),
+              );
+            },
+          );
+        },
+        loading: () => const TopicListSkeleton(),
+        error: (error, stack) => ErrorView(
+          error: error,
+          stackTrace: stack,
+          onRetry: _onRefresh,
         ),
       ),
     );

@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/discourse_providers.dart';
+import '../models/search_filter.dart';
 import '../models/search_result.dart';
-import '../models/category.dart';
-import '../utils/font_awesome_helper.dart';
 import '../widgets/common/smart_avatar.dart';
-import '../utils/time_utils.dart';
-import '../utils/number_utils.dart';
-import 'topic_detail_page/topic_detail_page.dart';
 import '../widgets/common/loading_spinner.dart';
-import '../widgets/common/topic_badges.dart';
+import '../widgets/search/search_filter_panel.dart';
+import '../widgets/search/search_post_card.dart';
+import 'topic_detail_page/topic_detail_page.dart';
 import 'user_profile_page.dart';
 
 /// 搜索页面
@@ -41,6 +39,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   List<String> _recentSearches = [];
   bool _isLoadingRecentSearches = true;
   bool _isClearingRecentSearches = false;
+
+  // 高级过滤器
+  SearchFilter _filter = const SearchFilter();
 
   @override
   void initState() {
@@ -94,7 +95,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         });
       }
     } catch (_) {
-      // 错误已由 ErrorInterceptor 处理
       if (mounted) {
         setState(() => _isClearingRecentSearches = false);
       }
@@ -148,9 +148,39 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     }
   }
 
+  void _onFilterChanged(SearchFilter newFilter) {
+    setState(() {
+      _filter = newFilter;
+      _currentPage = 1;
+      _allPosts = [];
+      _allUsers = [];
+    });
+    if (_currentQuery.isNotEmpty) {
+      _performSearch();
+    }
+  }
+
+  void _openFilterPanel() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => SearchFilterPanel(
+          filter: _filter,
+          onFilterChanged: _onFilterChanged,
+          hideInType: true,
+        ),
+      ),
+    );
+  }
+
   /// 从查询字符串中移除 order:xxx 部分，返回纯净的查询
   String _stripOrderFromQuery(String query) {
-    // 匹配 order:xxx 格式（包括前后可能的空格）
     return query
         .replaceAll(
           RegExp(r'\s*order:(relevance|latest|likes|views|latest_topic)\s*'),
@@ -185,12 +215,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final service = ref.read(discourseServiceProvider);
       final sortOrder = ref.read(searchSettingsProvider).sortOrder;
-      // 先移除查询中已有的 order:xxx，再添加当前排序设置
+
+      // 构建查询字符串
       final cleanQuery = _stripOrderFromQuery(_currentQuery);
       String searchQuery = cleanQuery;
-      if (sortOrder.value != null) {
-        searchQuery = '$cleanQuery order:${sortOrder.value}';
+
+      // 添加过滤条件
+      final filterQuery = _filter.toQueryString();
+      if (filterQuery.isNotEmpty) {
+        searchQuery = '$searchQuery $filterQuery';
       }
+
+      // 添加排序
+      if (sortOrder.value != null) {
+        searchQuery = '$searchQuery order:${sortOrder.value}';
+      }
+
       final result = await service.search(
         query: searchQuery,
         page: _currentPage,
@@ -240,6 +280,68 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _focusNode.requestFocus();
   }
 
+  void _clearCategory() {
+    setState(() {
+      _filter = _filter.copyWith(clearCategory: true);
+      _currentPage = 1;
+      _allPosts = [];
+      _allUsers = [];
+    });
+    if (_currentQuery.isNotEmpty) {
+      _performSearch();
+    }
+  }
+
+  void _removeTag(String tag) {
+    setState(() {
+      _filter = _filter.copyWith(
+        tags: _filter.tags.where((t) => t != tag).toList(),
+      );
+      _currentPage = 1;
+      _allPosts = [];
+      _allUsers = [];
+    });
+    if (_currentQuery.isNotEmpty) {
+      _performSearch();
+    }
+  }
+
+  void _clearStatus() {
+    setState(() {
+      _filter = _filter.copyWith(clearStatus: true);
+      _currentPage = 1;
+      _allPosts = [];
+      _allUsers = [];
+    });
+    if (_currentQuery.isNotEmpty) {
+      _performSearch();
+    }
+  }
+
+  void _clearDateRange() {
+    setState(() {
+      _filter = _filter.copyWith(clearDateRange: true);
+      _currentPage = 1;
+      _allPosts = [];
+      _allUsers = [];
+    });
+    if (_currentQuery.isNotEmpty) {
+      _performSearch();
+    }
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _filter = _filter.clear();
+      _currentPage = 1;
+      _allPosts = [];
+      _allUsers = [];
+    });
+    if (_currentQuery.isNotEmpty) {
+      _performSearch();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -279,6 +381,29 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             icon: const Icon(Icons.search),
             onPressed: () => _onSearch(_searchController.text),
             tooltip: '搜索',
+          ),
+          // 过滤器按钮
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.tune),
+                onPressed: _openFilterPanel,
+                tooltip: '高级搜索',
+              ),
+              if (_filter.isNotEmpty)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -363,7 +488,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// 构建最近搜索项
   Widget _buildRecentSearchItem(String query, ThemeData theme) {
-    // 提取纯净查询（用于显示和搜索）
+    // 提取纯净查询
     final cleanQuery = _stripOrderFromQuery(query);
 
     return InkWell(
@@ -375,7 +500,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               .read(searchSettingsProvider.notifier)
               .setSortOrder(extractedOrder);
         }
-        // 使用纯净查询
         _searchController.text = cleanQuery;
         _onSearch(cleanQuery);
       },
@@ -421,6 +545,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return Column(
       children: [
+        // 已激活的过滤条件
+        if (_filter.isNotEmpty)
+          ActiveSearchFiltersBar(
+            filter: _filter,
+            onClearCategory: _clearCategory,
+            onRemoveTag: _removeTag,
+            onClearStatus: _clearStatus,
+            onClearDateRange: _clearDateRange,
+            onClearAll: _clearAllFilters,
+          ),
         // 排序选项
         if (_allPosts.isNotEmpty || _allUsers.isNotEmpty)
           Container(
@@ -467,7 +601,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             itemBuilder: (context, index) {
               // 帖子结果
               if (index < _allPosts.length) {
-                return _SearchPostCard(
+                return SearchPostCard(
                   post: _allPosts[index],
                   onTap: () {
                     final topic = _allPosts[index].topic;
@@ -605,297 +739,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 }
 
-/// 搜索结果帖子卡片 - 复用 TopicCard 风格
-class _SearchPostCard extends ConsumerWidget {
-  final SearchPost post;
-  final VoidCallback? onTap;
-
-  const _SearchPostCard({required this.post, this.onTap});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final topic = post.topic;
-
-    // 获取分类信息
-    final categoryMap = ref.watch(categoryMapProvider).value;
-    final categoryId = topic?.categoryId;
-    Category? category;
-    if (categoryId != null && categoryMap != null) {
-      category = categoryMap[categoryId];
-    }
-
-    // 图标逻辑：本级 FA Icon -> 本级 Logo -> 父级 FA Icon -> 父级 Logo
-    IconData? faIcon = FontAwesomeHelper.getIcon(category?.icon);
-    String? logoUrl = category?.uploadedLogo;
-
-    if (faIcon == null &&
-        (logoUrl == null || logoUrl.isEmpty) &&
-        category?.parentCategoryId != null) {
-      final parent = categoryMap?[category!.parentCategoryId];
-      faIcon = FontAwesomeHelper.getIcon(parent?.icon);
-      logoUrl = parent?.uploadedLogo;
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. 标题行
-              if (topic != null)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildTopicTitle(post, topic, theme)),
-                    // 楼层号
-                    if (post.postNumber > 1)
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '#${post.postNumber}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-
-              const SizedBox(height: 10),
-
-              // 2. 分类与标签行
-              if (topic != null && (category != null || topic.tags.isNotEmpty))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      // 分类 Badge
-                      if (category != null)
-                        CategoryBadge(
-                          category: category,
-                          faIcon: faIcon,
-                          logoUrl: logoUrl,
-                        ),
-
-                      // 标签 Badges
-                      ...topic.tags
-                          .take(3)
-                          .map((tag) => TagBadge(name: tag.name)),
-                    ],
-                  ),
-                ),
-
-              // 3. 帖子摘要
-              if (post.blurb.isNotEmpty) ...[
-                _buildBlurb(post.blurb, theme),
-                const SizedBox(height: 12),
-              ],
-
-              // 4. 底部信息栏
-              Row(
-                children: [
-                  // 用户头像
-                  SmartAvatar(
-                    imageUrl: post.getAvatarUrl().isNotEmpty
-                        ? post.getAvatarUrl(size: 48)
-                        : null,
-                    radius: 12,
-                    fallbackText: post.username,
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    post.username,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // 点赞数
-                  if (post.likeCount > 0) ...[
-                    Icon(
-                      Icons.favorite_border_rounded,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      NumberUtils.formatCount(post.likeCount),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-
-                  // 时间
-                  Text(
-                    TimeUtils.formatRelativeTime(post.createdAt),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.7,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopicTitle(SearchPost post, SearchTopic topic, ThemeData theme) {
-    // 如果有高亮标题，使用高亮版本
-    if (post.topicTitleHeadline != null &&
-        post.topicTitleHeadline!.isNotEmpty) {
-      return _buildHighlightedText(
-        post.topicTitleHeadline!,
-        theme,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          height: 1.3,
-        ),
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (topic.closed)
-          Padding(
-            padding: const EdgeInsets.only(right: 6, top: 2),
-            child: Icon(Icons.lock, size: 16, color: theme.colorScheme.outline),
-          ),
-        if (topic.archived)
-          Padding(
-            padding: const EdgeInsets.only(right: 6, top: 2),
-            child: Icon(
-              Icons.archive,
-              size: 16,
-              color: theme.colorScheme.outline,
-            ),
-          ),
-        Expanded(
-          child: Text(
-            topic.title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              height: 1.3,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBlurb(String blurb, ThemeData theme) {
-    return _buildHighlightedText(
-      blurb,
-      theme,
-      style: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        height: 1.4,
-      ),
-    );
-  }
-
-  Widget _buildHighlightedText(
-    String text,
-    ThemeData theme, {
-    TextStyle? style,
-  }) {
-    // Discourse 使用 <span class="search-highlight">...</span> 来高亮
-    final regex = RegExp(r'<span class="search-highlight">(.*?)</span>');
-    final matches = regex.allMatches(text);
-
-    if (matches.isEmpty) {
-      // 没有高亮，直接显示纯文本（移除其他 HTML 标签）
-      final cleanText = text.replaceAll(RegExp(r'<[^>]*>'), '');
-      return Text(
-        cleanText,
-        style: style,
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-      );
-    }
-
-    final spans = <TextSpan>[];
-    int lastEnd = 0;
-
-    for (final match in matches) {
-      // 添加高亮前的文本
-      if (match.start > lastEnd) {
-        final beforeText = text
-            .substring(lastEnd, match.start)
-            .replaceAll(RegExp(r'<[^>]*>'), '');
-        spans.add(TextSpan(text: beforeText));
-      }
-
-      // 添加高亮文本
-      final highlightedText = match.group(1) ?? '';
-      spans.add(
-        TextSpan(
-          text: highlightedText,
-          style: TextStyle(
-            backgroundColor: theme.colorScheme.primaryContainer,
-            color: theme.colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-
-      lastEnd = match.end;
-    }
-
-    // 添加剩余文本
-    if (lastEnd < text.length) {
-      final afterText = text
-          .substring(lastEnd)
-          .replaceAll(RegExp(r'<[^>]*>'), '');
-      spans.add(TextSpan(text: afterText));
-    }
-
-    return RichText(
-      text: TextSpan(style: style, children: spans),
-      maxLines: 3,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-}
-
-/// 搜索结果用户卡片 - 复用 TopicCard 风格
+/// 搜索结果用户卡片
 class _SearchUserCard extends StatelessWidget {
   final SearchUser user;
   final VoidCallback? onTap;

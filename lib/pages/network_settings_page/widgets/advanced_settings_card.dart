@@ -55,6 +55,8 @@ class AdvancedSettingsCard extends StatelessWidget {
     // 强制前台模式
     final result = await CfChallengeService().showManualVerify(context, true);
 
+    if (!context.mounted) return;
+
     if (result == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('验证成功')),

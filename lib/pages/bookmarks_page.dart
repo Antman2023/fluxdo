@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/search_filter.dart';
 import '../models/topic.dart';
 import '../providers/discourse_providers.dart';
+import '../providers/user_content_search_provider.dart';
+import '../widgets/search/searchable_app_bar.dart';
+import '../widgets/search/user_content_search_view.dart';
 import '../widgets/topic/topic_card.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/common/error_view.dart';
@@ -56,67 +60,94 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
   @override
   Widget build(BuildContext context) {
     final bookmarksAsync = ref.watch(bookmarksProvider);
+    final searchState = ref.watch(userContentSearchProvider(SearchInType.bookmarks));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('我的书签')),
-      body: RefreshIndicator(
-        onRefresh: _onRefresh,
-        child: bookmarksAsync.when(
-          data: (topics) {
-            if (topics.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text('暂无书签', style: TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              );
-            }
+      appBar: SearchableAppBar(
+        title: '我的书签',
+        isSearchMode: searchState.isSearchMode,
+        onSearchPressed: () => ref
+            .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
+            .enterSearchMode(),
+        onCloseSearch: () => ref
+            .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
+            .exitSearchMode(),
+        onSearch: (query) => ref
+            .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
+            .search(query),
+        showFilterButton: searchState.isSearchMode,
+        filterActive: searchState.filter.isNotEmpty,
+        onFilterPressed: () =>
+            showSearchFilterPanel(context, ref, SearchInType.bookmarks),
+        searchHint: '在书签中搜索...',
+      ),
+      body: searchState.isSearchMode
+          ? const UserContentSearchView(
+              inType: SearchInType.bookmarks,
+              emptySearchHint: '输入关键词搜索书签',
+            )
+          : _buildTopicList(bookmarksAsync),
+    );
+  }
 
-            return ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: topics.length + 1,
-              itemBuilder: (context, index) {
-                if (index == topics.length) {
-                  final hasMore = ref.read(bookmarksProvider.notifier).hasMore;
-                  if (!hasMore) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(
-                        child: Text(
-                          '没有更多了',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    );
-                  }
-                  if (bookmarksAsync.isLoading) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  return const SizedBox();
-                }
-
-                final topic = topics[index];
-                return TopicCard(
-                  topic: topic,
-                  onTap: () => _onItemTap(topic),
-                );
-              },
+  Widget _buildTopicList(AsyncValue<List<Topic>> bookmarksAsync) {
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: bookmarksAsync.when(
+        data: (topics) {
+          if (topics.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('暂无书签', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             );
-          },
-          loading: () => const TopicListSkeleton(),
-          error: (error, stack) => ErrorView(
-            error: error,
-            stackTrace: stack,
-            onRetry: _onRefresh,
-          ),
+          }
+
+          return ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.all(12),
+            itemCount: topics.length + 1,
+            itemBuilder: (context, index) {
+              if (index == topics.length) {
+                final hasMore = ref.read(bookmarksProvider.notifier).hasMore;
+                if (!hasMore) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text(
+                        '没有更多了',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  );
+                }
+                if (bookmarksAsync.isLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return const SizedBox();
+              }
+
+              final topic = topics[index];
+              return TopicCard(
+                topic: topic,
+                onTap: () => _onItemTap(topic),
+              );
+            },
+          );
+        },
+        loading: () => const TopicListSkeleton(),
+        error: (error, stack) => ErrorView(
+          error: error,
+          stackTrace: stack,
+          onRetry: _onRefresh,
         ),
       ),
     );
