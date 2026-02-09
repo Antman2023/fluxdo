@@ -207,4 +207,46 @@ extension _UserActions on _TopicDetailPageState {
 
     ExportSheet.show(context, detail);
   }
+
+  /// 处理帖子级别的 MessageBus 更新
+  void _handlePostUpdate(TopicDetailNotifier notifier, PostUpdate update) {
+    switch (update.type) {
+      case TopicMessageType.created:
+        notifier.loadNewReplies();
+        break;
+      case TopicMessageType.revised:
+      case TopicMessageType.rebaked:
+        notifier.refreshPost(update.postId, updatedAt: update.updatedAt);
+        break;
+      case TopicMessageType.acted:
+        // acted 的 updated_at 是操作时间，不是帖子修改时间，不传 updatedAt 避免跳过刷新
+        notifier.refreshPost(update.postId, preserveCooked: true);
+        break;
+      case TopicMessageType.deleted:
+        notifier.markPostDeleted(update.postId);
+        break;
+      case TopicMessageType.destroyed:
+        notifier.removePost(update.postId);
+        break;
+      case TopicMessageType.recovered:
+        notifier.markPostRecovered(update.postId);
+        break;
+      case TopicMessageType.liked:
+      case TopicMessageType.unliked:
+        notifier.updatePostLikes(update.postId, likesCount: update.likesCount);
+        break;
+      default:
+        break;
+    }
+  }
+
+  /// 处理 reload_topic 消息
+  void _handleReloadTopic(TopicDetailNotifier notifier, bool refreshStream) {
+    final anchor = _controller.getRefreshAnchorPostNumber(widget.scrollToPostNumber);
+    if (refreshStream) {
+      notifier.refreshWithPostNumber(anchor);
+    } else {
+      notifier.reloadTopicMetadata();
+    }
+  }
 }

@@ -4,8 +4,9 @@ part of '../topic_detail_provider.dart';
 
 /// 帖子和话题更新相关方法
 extension PostUpdateMethods on TopicDetailNotifier {
-  /// 刷新单个帖子（用于 MessageBus revised/rebaked 消息）
-  Future<void> refreshPost(int postId, {bool preserveCooked = false}) async {
+  /// 刷新单个帖子（用于 MessageBus revised/acted 等消息）
+  /// 与 Discourse 官方一致，使用 /posts/{id}.json 单帖接口获取完整数据
+  Future<void> refreshPost(int postId, {bool preserveCooked = false, DateTime? updatedAt}) async {
     final currentDetail = state.value;
     if (currentDetail == null) return;
 
@@ -13,15 +14,14 @@ extension PostUpdateMethods on TopicDetailNotifier {
     final index = currentPosts.indexWhere((p) => p.id == postId);
     if (index == -1) return;
 
+    // 如果提供了 updatedAt，检查是否真的需要更新
+    if (updatedAt != null && !currentPosts[index].updatedAt.isBefore(updatedAt)) {
+      return;
+    }
+
     try {
       final service = ref.read(discourseServiceProvider);
-      final postNumber = currentPosts[index].postNumber;
-      final newDetail = await service.getTopicDetail(arg.topicId, postNumber: postNumber);
-
-      final updatedPost = newDetail.postStream.posts.firstWhere(
-        (p) => p.id == postId,
-        orElse: () => currentPosts[index],
-      );
+      final updatedPost = await service.getPost(postId);
 
       final finalPost = preserveCooked
           ? updatedPost.copyWith(
@@ -51,9 +51,11 @@ extension PostUpdateMethods on TopicDetailNotifier {
 
     if (newPosts.length == currentPosts.length) return;
 
+    final newStream = currentDetail.postStream.stream.where((id) => id != postId).toList();
+
     state = AsyncValue.data(currentDetail.copyWith(
       postsCount: currentDetail.postsCount - 1,
-      postStream: PostStream(posts: newPosts, stream: currentDetail.postStream.stream),
+      postStream: PostStream(posts: newPosts, stream: newStream),
     ));
   }
 
@@ -132,8 +134,19 @@ extension PostUpdateMethods on TopicDetailNotifier {
       newStream.add(post.id);
     }
 
+    // 本地递增被回复帖子的 replyCount
+    List<Post> updatedPosts = currentPosts;
+    if (post.replyToPostNumber > 0) {
+      updatedPosts = currentPosts.map((p) {
+        if (p.postNumber == post.replyToPostNumber) {
+          return p.copyWith(replyCount: p.replyCount + 1);
+        }
+        return p;
+      }).toList();
+    }
+
     if (!_hasMoreAfter) {
-      final newPosts = [...currentPosts, post];
+      final newPosts = [...updatedPosts, post];
       newPosts.sort((a, b) => a.postNumber.compareTo(b.postNumber));
 
       final newPostsCount = currentDetail.postsCount + 1;
@@ -146,7 +159,7 @@ extension PostUpdateMethods on TopicDetailNotifier {
     } else {
       state = AsyncValue.data(currentDetail.copyWith(
         postsCount: currentDetail.postsCount + 1,
-        postStream: PostStream(posts: currentPosts, stream: newStream),
+        postStream: PostStream(posts: updatedPosts, stream: newStream),
       ));
       return false;
     }
@@ -224,6 +237,50 @@ extension PostUpdateMethods on TopicDetailNotifier {
     } catch (e) {
       debugPrint('[TopicDetail] 更新订阅级别失败: $e');
       rethrow;
+    }
+  }
+
+  /// 本地更新话题订阅级别（不发起网络请求，用于 MessageBus 同步）
+  void updateNotificationLevelLocally(TopicNotificationLevel level) {
+    final currentDetail = state.value;
+    if (currentDetail == null) return;
+    state = AsyncValue.data(currentDetail.copyWith(notificationLevel: level));
+  }
+
+  /// 应用话题统计更新（用于 MessageBus stats 消息）
+  void applyStatsUpdate(TopicStatsUpdate stats) {
+    final currentDetail = state.value;
+    if (currentDetail == null) return;
+
+    state = AsyncValue.data(currentDetail.copyWith(
+      postsCount: stats.postsCount ?? currentDetail.postsCount,
+      likeCount: stats.likeCount ?? currentDetail.likeCount,
+    ));
+  }
+
+  /// 重新加载话题元数据（只更新元数据，不刷新帖子流）
+  Future<void> reloadTopicMetadata() async {
+    final currentDetail = state.value;
+    if (currentDetail == null) return;
+
+    try {
+      final service = ref.read(discourseServiceProvider);
+      final newDetail = await service.getTopicDetail(arg.topicId, postNumber: 1);
+      // 只更新元数据，保留当前帖子列表
+      state = AsyncValue.data(currentDetail.copyWith(
+        title: newDetail.title,
+        slug: newDetail.slug,
+        closed: newDetail.closed,
+        archived: newDetail.archived,
+        tags: newDetail.tags,
+        categoryId: newDetail.categoryId,
+        notificationLevel: newDetail.notificationLevel,
+        hasAcceptedAnswer: newDetail.hasAcceptedAnswer,
+        acceptedAnswerPostNumber: newDetail.acceptedAnswerPostNumber,
+        canEdit: newDetail.canEdit,
+      ));
+    } catch (e) {
+      debugPrint('[TopicDetail] reloadTopicMetadata 失败: $e');
     }
   }
 }

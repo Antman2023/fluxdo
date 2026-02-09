@@ -112,6 +112,13 @@ mixin _PostsMixin on _DiscourseServiceBase {
     return data.map((e) => Post.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// 获取单个帖子完整数据（用于 MessageBus 刷新）
+  Future<Post> getPost(int postId) async {
+    final response = await _dio.get('/posts/$postId.json');
+    final data = response.data as Map<String, dynamic>;
+    return Post.fromJson(data);
+  }
+
   /// 获取帖子原始内容
   Future<String?> getPostRaw(int postId) async {
     try {

@@ -116,6 +116,9 @@ class TopicChannelState {
   final List<PostUpdate> postUpdates;
   final TopicStatsUpdate? statsUpdate;
   final bool messageArchived;
+  final bool reloadRequested;        // 需要重新加载话题（reload_topic 消息）
+  final bool refreshStreamRequested; // 需要刷新帖子流（reload_topic + refresh_stream）
+  final int? notificationLevelChange; // 通知级别变更
 
   const TopicChannelState({
     this.hasNewReplies = false,
@@ -123,6 +126,9 @@ class TopicChannelState {
     this.postUpdates = const [],
     this.statsUpdate,
     this.messageArchived = false,
+    this.reloadRequested = false,
+    this.refreshStreamRequested = false,
+    this.notificationLevelChange,
   });
 
   TopicChannelState copyWith({
@@ -132,6 +138,10 @@ class TopicChannelState {
     TopicStatsUpdate? statsUpdate,
     bool? clearStatsUpdate,
     bool? messageArchived,
+    bool? reloadRequested,
+    bool? refreshStreamRequested,
+    int? notificationLevelChange,
+    bool clearNotificationLevelChange = false,
   }) {
     return TopicChannelState(
       hasNewReplies: hasNewReplies ?? this.hasNewReplies,
@@ -139,6 +149,9 @@ class TopicChannelState {
       postUpdates: postUpdates ?? this.postUpdates,
       statsUpdate: clearStatsUpdate == true ? null : (statsUpdate ?? this.statsUpdate),
       messageArchived: messageArchived ?? this.messageArchived,
+      reloadRequested: reloadRequested ?? this.reloadRequested,
+      refreshStreamRequested: refreshStreamRequested ?? this.refreshStreamRequested,
+      notificationLevelChange: clearNotificationLevelChange ? null : (notificationLevelChange ?? this.notificationLevelChange),
     );
   }
 }

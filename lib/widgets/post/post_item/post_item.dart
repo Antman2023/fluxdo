@@ -137,6 +137,16 @@ class _PostItemState extends ConsumerState<PostItem> {
     if (oldWidget.post.id != widget.post.id) {
       _initLikeState();
       _initAvatarWidget();
+    } else {
+      // 同一帖子但数据更新了（例如通过 MessageBus 刷新）
+      // 只在本地没有进行中的操作时同步回应状态
+      if (!_isLiking) {
+        _reactions = List.from(widget.post.reactions ?? []);
+        _currentUserReaction = widget.post.currentUserReaction;
+      }
+      _isBookmarked = widget.post.bookmarked;
+      _bookmarkId = widget.post.bookmarkId;
+      _isAcceptedAnswer = widget.post.acceptedAnswer;
     }
   }
 

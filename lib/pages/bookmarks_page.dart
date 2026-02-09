@@ -31,6 +31,8 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    // 清理搜索状态，防止重新进入时仍处于搜索模式
+    ref.read(userContentSearchProvider(SearchInType.bookmarks).notifier).exitSearchMode();
     super.dispose();
   }
 
@@ -62,38 +64,47 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
     final bookmarksAsync = ref.watch(bookmarksProvider);
     final searchState = ref.watch(userContentSearchProvider(SearchInType.bookmarks));
 
-    return Scaffold(
-      appBar: SearchableAppBar(
-        title: '我的书签',
-        isSearchMode: searchState.isSearchMode,
-        onSearchPressed: () => ref
-            .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
-            .enterSearchMode(),
-        onCloseSearch: () => ref
-            .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
-            .exitSearchMode(),
-        onSearch: (query) => ref
-            .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
-            .search(query),
-        showFilterButton: searchState.isSearchMode,
-        filterActive: searchState.filter.isNotEmpty,
-        onFilterPressed: () =>
-            showSearchFilterPanel(context, ref, SearchInType.bookmarks),
-        searchHint: '在书签中搜索...',
-      ),
-      body: Stack(
-        children: [
-          // 使用 Offstage 保持列表存在但在搜索模式下隐藏，保留滚动位置
-          Offstage(
-            offstage: searchState.isSearchMode,
-            child: _buildTopicList(bookmarksAsync),
-          ),
-          if (searchState.isSearchMode)
-            const UserContentSearchView(
-              inType: SearchInType.bookmarks,
-              emptySearchHint: '输入关键词搜索书签',
+    return PopScope(
+      canPop: !searchState.isSearchMode,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (!didPop) {
+          // 搜索模式下按返回键，退出搜索而不是退出页面
+          ref.read(userContentSearchProvider(SearchInType.bookmarks).notifier).exitSearchMode();
+        }
+      },
+      child: Scaffold(
+        appBar: SearchableAppBar(
+          title: '我的书签',
+          isSearchMode: searchState.isSearchMode,
+          onSearchPressed: () => ref
+              .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
+              .enterSearchMode(),
+          onCloseSearch: () => ref
+              .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
+              .exitSearchMode(),
+          onSearch: (query) => ref
+              .read(userContentSearchProvider(SearchInType.bookmarks).notifier)
+              .search(query),
+          showFilterButton: searchState.isSearchMode,
+          filterActive: searchState.filter.isNotEmpty,
+          onFilterPressed: () =>
+              showSearchFilterPanel(context, ref, SearchInType.bookmarks),
+          searchHint: '在书签中搜索...',
+        ),
+        body: Stack(
+          children: [
+            // 使用 Offstage 保持列表存在但在搜索模式下隐藏，保留滚动位置
+            Offstage(
+              offstage: searchState.isSearchMode,
+              child: _buildTopicList(bookmarksAsync),
             ),
-        ],
+            if (searchState.isSearchMode)
+              const UserContentSearchView(
+                inType: SearchInType.bookmarks,
+                emptySearchHint: '输入关键词搜索书签',
+              ),
+          ],
+        ),
       ),
     );
   }

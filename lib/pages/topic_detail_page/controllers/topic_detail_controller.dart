@@ -234,22 +234,6 @@ class TopicDetailController extends ChangeNotifier {
     );
   }
 
-  /// 如果在底部则自动滚动到最底部
-  void scrollToBottomIfNeeded() {
-    if (!scrollController.hasClients) return;
-
-    final position = scrollController.position;
-    final isAtBottom = position.pixels >= position.maxScrollExtent - 10;
-
-    if (isAtBottom && position.pixels > 0) {
-      scrollController.animateTo(
-        position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
   /// 检查是否需要加载更早的帖子
   bool shouldLoadPrevious(bool hasMoreBefore, bool isLoadingPrevious) {
     if (!scrollController.hasClients) return false;

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
 import 'core_providers.dart';
+import 'message_bus/models.dart';
 
 part 'topic_detail/_loading_methods.dart';
 part 'topic_detail/_filter_methods.dart';

@@ -131,6 +131,7 @@ extension LoadingMethods on TopicDetailNotifier {
   /// 加载新回复（用于 MessageBus 实时更新）
   Future<void> loadNewReplies() async {
     if (state.isLoading) return;
+    if (_isFilteredMode) return; // 过滤模式下忽略
 
     final currentDetail = state.value;
     if (currentDetail == null) return;
@@ -140,10 +141,29 @@ extension LoadingMethods on TopicDetailNotifier {
 
     final lastPostNumber = currentPosts.last.postNumber;
 
+    // 用户不在底部：只更新 stream 和 postsCount（让进度指示器反映新帖子）
     if (lastPostNumber < currentDetail.postsCount) {
+      try {
+        final service = ref.read(discourseServiceProvider);
+        // 轻量请求：只获取最新话题信息以拿到 stream 和 postsCount
+        final newDetail = await service.getTopicDetail(arg.topicId, postNumber: lastPostNumber);
+        if (newDetail.postStream.stream.length > currentDetail.postStream.stream.length) {
+          state = AsyncValue.data(currentDetail.copyWith(
+            postsCount: newDetail.postsCount,
+            postStream: PostStream(
+              posts: currentPosts,
+              stream: newDetail.postStream.stream,
+            ),
+          ));
+          _updateBoundaryState(currentPosts, newDetail.postStream.stream);
+        }
+      } catch (e) {
+        debugPrint('[TopicDetail] 更新 stream 失败: $e');
+      }
       return;
     }
 
+    // 用户在底部：加载并追加新帖子
     final targetPostNumber = lastPostNumber + 1;
 
     try {
@@ -157,7 +177,23 @@ extension LoadingMethods on TopicDetailNotifier {
 
       if (newPosts.isEmpty) return;
 
-      final mergedPosts = [...currentPosts, ...newPosts];
+      // 本地递增被回复帖子的 replyCount（与 Discourse 官方做法一致）
+      final replyToNumbers = <int>{};
+      for (final p in newPosts) {
+        if (p.replyToPostNumber > 0) {
+          replyToNumbers.add(p.replyToPostNumber);
+        }
+      }
+      final updatedCurrentPosts = replyToNumbers.isEmpty
+          ? currentPosts
+          : currentPosts.map((p) {
+              if (replyToNumbers.contains(p.postNumber)) {
+                return p.copyWith(replyCount: p.replyCount + 1);
+              }
+              return p;
+            }).toList();
+
+      final mergedPosts = [...updatedCurrentPosts, ...newPosts];
       mergedPosts.sort((a, b) => a.postNumber.compareTo(b.postNumber));
 
       final mergedStream = newDetail.postStream.stream;

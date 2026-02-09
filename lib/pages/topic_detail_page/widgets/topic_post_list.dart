@@ -129,10 +129,17 @@ class TopicPostList extends StatelessWidget {
           for (int i = centerPostIndex + 1; i < posts.length; i++)
             _buildPostSliver(context, theme, posts[i], i),
 
-          // 正在输入指示器
-          if (typingUsers.isNotEmpty && !hasMoreAfter)
+          // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）
+          if (!hasMoreAfter)
             SliverToBoxAdapter(
-              child: _wrapContent(context, TypingAvatars(users: typingUsers)),
+              child: _wrapContent(
+                context,
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  alignment: Alignment.topCenter,
+                  child: TypingAvatars(users: typingUsers),
+                ),
+              ),
             ),
 
           // 底部加载骨架屏

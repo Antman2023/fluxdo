@@ -31,6 +31,8 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    // 清理搜索状态，防止重新进入时仍处于搜索模式
+    ref.read(userContentSearchProvider(SearchInType.created).notifier).exitSearchMode();
     super.dispose();
   }
 
@@ -62,38 +64,47 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
     final myTopicsAsync = ref.watch(myTopicsProvider);
     final searchState = ref.watch(userContentSearchProvider(SearchInType.created));
 
-    return Scaffold(
-      appBar: SearchableAppBar(
-        title: '我的话题',
-        isSearchMode: searchState.isSearchMode,
-        onSearchPressed: () => ref
-            .read(userContentSearchProvider(SearchInType.created).notifier)
-            .enterSearchMode(),
-        onCloseSearch: () => ref
-            .read(userContentSearchProvider(SearchInType.created).notifier)
-            .exitSearchMode(),
-        onSearch: (query) => ref
-            .read(userContentSearchProvider(SearchInType.created).notifier)
-            .search(query),
-        showFilterButton: searchState.isSearchMode,
-        filterActive: searchState.filter.isNotEmpty,
-        onFilterPressed: () =>
-            showSearchFilterPanel(context, ref, SearchInType.created),
-        searchHint: '在我的话题中搜索...',
-      ),
-      body: Stack(
-        children: [
-          // 使用 Offstage 保持列表存在但在搜索模式下隐藏，保留滚动位置
-          Offstage(
-            offstage: searchState.isSearchMode,
-            child: _buildTopicList(myTopicsAsync),
-          ),
-          if (searchState.isSearchMode)
-            const UserContentSearchView(
-              inType: SearchInType.created,
-              emptySearchHint: '输入关键词搜索我的话题',
+    return PopScope(
+      canPop: !searchState.isSearchMode,
+      onPopInvokedWithResult: (bool didPop, dynamic result) {
+        if (!didPop) {
+          // 搜索模式下按返回键，退出搜索而不是退出页面
+          ref.read(userContentSearchProvider(SearchInType.created).notifier).exitSearchMode();
+        }
+      },
+      child: Scaffold(
+        appBar: SearchableAppBar(
+          title: '我的话题',
+          isSearchMode: searchState.isSearchMode,
+          onSearchPressed: () => ref
+              .read(userContentSearchProvider(SearchInType.created).notifier)
+              .enterSearchMode(),
+          onCloseSearch: () => ref
+              .read(userContentSearchProvider(SearchInType.created).notifier)
+              .exitSearchMode(),
+          onSearch: (query) => ref
+              .read(userContentSearchProvider(SearchInType.created).notifier)
+              .search(query),
+          showFilterButton: searchState.isSearchMode,
+          filterActive: searchState.filter.isNotEmpty,
+          onFilterPressed: () =>
+              showSearchFilterPanel(context, ref, SearchInType.created),
+          searchHint: '在我的话题中搜索...',
+        ),
+        body: Stack(
+          children: [
+            // 使用 Offstage 保持列表存在但在搜索模式下隐藏，保留滚动位置
+            Offstage(
+              offstage: searchState.isSearchMode,
+              child: _buildTopicList(myTopicsAsync),
             ),
-        ],
+            if (searchState.isSearchMode)
+              const UserContentSearchView(
+                inType: SearchInType.created,
+                emptySearchHint: '输入关键词搜索我的话题',
+              ),
+          ],
+        ),
       ),
     );
   }

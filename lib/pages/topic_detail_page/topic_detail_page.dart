@@ -98,8 +98,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
   final FocusNode _searchFocusNode = FocusNode();
   late final AnimationController _expandController;
   late final Animation<Offset> _animation;
-  Timer? _throttleTimer;
-  bool _isScrollToBottomScheduled = false;
   Set<int> _lastReadPostNumbers = {};
   bool? _lastCanShowDetailPane;
   bool _isAutoSwitching = false;
@@ -164,7 +162,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
 
   @override
   void dispose() {
-    _throttleTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _expandController.dispose();
     _showTitleNotifier.dispose();
@@ -175,6 +172,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     _controller.scrollController.removeListener(_onScroll);
     _screenTrack.stop();
     _controller.dispose();
+    // 清理搜索状态，防止重新进入时仍处于搜索模式
+    ref.read(topicSearchProvider(widget.topicId).notifier).exitSearchMode();
     super.dispose();
   }
 
@@ -524,26 +523,37 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
 
     _maybeSwitchToMasterDetail(canShowDetailPane, detail);
 
-    // 监听 MessageBus 新回复通知
+    // 监听 MessageBus 事件
     ref.listen(topicChannelProvider(widget.topicId), (previous, next) {
-      if (next.hasNewReplies && !(previous?.hasNewReplies ?? false)) {
-        debugPrint('[TopicDetail] New replies detected via MessageBus, loading...');
-        notifier.loadNewReplies();
+      // 1. reload_topic（话题状态变更：关闭/打开/固定等）
+      if (next.reloadRequested && !(previous?.reloadRequested ?? false)) {
+        ref.read(topicChannelProvider(widget.topicId).notifier).clearReloadRequest();
+        _handleReloadTopic(notifier, next.refreshStreamRequested);
+        return;
       }
 
-      if (next.typingUsers.isNotEmpty || next.hasNewReplies) {
-        if (_throttleTimer?.isActive ?? false) return;
-        _throttleTimer = Timer(const Duration(milliseconds: 200), () {
-          if (!mounted) return;
-          if (_isScrollToBottomScheduled) return;
-          _isScrollToBottomScheduled = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _isScrollToBottomScheduled = false;
-            if (mounted) {
-              _controller.scrollToBottomIfNeeded();
-            }
-          });
-        });
+      // 2. notification_level_change（通知级别变更）
+      if (next.notificationLevelChange != null && previous?.notificationLevelChange != next.notificationLevelChange) {
+        final level = TopicNotificationLevel.fromValue(next.notificationLevelChange!);
+        ref.read(topicChannelProvider(widget.topicId).notifier).clearNotificationLevelChange();
+        notifier.updateNotificationLevelLocally(level);
+        return;
+      }
+
+      // 3. stats 更新
+      if (next.statsUpdate != null && previous?.statsUpdate != next.statsUpdate) {
+        notifier.applyStatsUpdate(next.statsUpdate!);
+        ref.read(topicChannelProvider(widget.topicId).notifier).clearStatsUpdate();
+      }
+
+      // 4. 帖子级别更新（created/revised/deleted/liked 等）
+      final prevLen = previous?.postUpdates.length ?? 0;
+      final nextLen = next.postUpdates.length;
+      if (nextLen > prevLen) {
+        final newUpdates = next.postUpdates.sublist(prevLen);
+        for (final update in newUpdates) {
+          _handlePostUpdate(notifier, update);
+        }
       }
     });
 
@@ -583,17 +593,27 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       }
     });
 
-    final channelState = ref.watch(topicChannelProvider(widget.topicId));
-    final typingUsers = channelState.typingUsers;
+    final searchState = ref.watch(topicSearchProvider(widget.topicId));
+    final isSearchMode = searchState.isSearchMode;
 
     return LazyLoadScope(
-      child: Scaffold(
-        appBar: _buildAppBar(
-          theme: theme,
-          detail: detail,
-          notifier: notifier,
+      child: PopScope(
+        canPop: !isSearchMode,
+        onPopInvokedWithResult: (bool didPop, dynamic result) {
+          if (!didPop) {
+            // 搜索模式下按返回键，退出搜索而不是退出页面
+            _searchController.clear();
+            ref.read(topicSearchProvider(widget.topicId).notifier).exitSearchMode();
+          }
+        },
+        child: Scaffold(
+          appBar: _buildAppBar(
+            theme: theme,
+            detail: detail,
+            notifier: notifier,
+          ),
+          body: _buildBody(context, detailAsync, detail, notifier, isLoggedIn),
         ),
-        body: _buildBody(context, detailAsync, detail, notifier, isLoggedIn, typingUsers),
       ),
     );
   }
@@ -604,7 +624,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     TopicDetail? detail,
     dynamic notifier,
     bool isLoggedIn,
-    List<TypingUser> typingUsers,
   ) {
     final params = _params;
     final searchState = ref.watch(topicSearchProvider(widget.topicId));
@@ -650,7 +669,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
       );
     } else if (detail != null) {
        // 正常内容构建 (保持原有逻辑，但简化提取)
-       content = _buildPostListContent(context, detail, notifier, isLoggedIn, typingUsers);
+       content = _buildPostListContent(context, detail, notifier, isLoggedIn);
     }
 
     // Stack 组装
@@ -770,7 +789,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
     TopicDetail detail,
     dynamic notifier,
     bool isLoggedIn,
-    List<TypingUser> typingUsers,
   ) {
     final posts = detail.postStream.posts;
     final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;
@@ -818,34 +836,41 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
 
     final centerPostIndex = _controller.findCenterPostIndex(posts);
 
-    // 使用 ValueListenableBuilder 隔离高亮状态变化，避免整页重建
-    Widget scrollView = ValueListenableBuilder<int?>(
-      valueListenable: _controller.highlightNotifier,
-      builder: (context, highlightPostNumber, _) {
-        return TopicPostList(
-          detail: detail,
-          scrollController: _controller.scrollController,
-          centerKey: _centerKey,
-          headerKey: _headerKey,
-          highlightPostNumber: highlightPostNumber,
-          typingUsers: typingUsers,
-          isLoggedIn: isLoggedIn,
-          hasMoreBefore: notifier.hasMoreBefore,
-          hasMoreAfter: notifier.hasMoreAfter,
-          isLoadingPrevious: notifier.isLoadingPrevious,
-          isLoadingMore: notifier.isLoadingMore,
-          centerPostIndex: centerPostIndex,
-          dividerPostIndex: dividerPostIndex,
-          onPostVisibilityChanged: _controller.onPostVisibilityChanged,
-          onJumpToPost: _scrollToPost,
-          onReply: _handleReply,
-          onEdit: _handleEdit,
-          onShareAsImage: _sharePostAsImage,
-          onRefreshPost: _handleRefreshPost,
-          onVoteChanged: _handleVoteChanged,
-          onNotificationLevelChanged: (level) => _handleNotificationLevelChanged(notifier, level),
-          onSolutionChanged: _handleSolutionChanged,
-          onScrollNotification: _controller.handleScrollNotification,
+    // 使用 Consumer + select 隔离 typingUsers 状态变化，避免整页重建
+    Widget scrollView = Consumer(
+      builder: (context, ref, _) {
+        final typingUsers = ref.watch(
+          topicChannelProvider(widget.topicId).select((s) => s.typingUsers),
+        );
+        return ValueListenableBuilder<int?>(
+          valueListenable: _controller.highlightNotifier,
+          builder: (context, highlightPostNumber, _) {
+            return TopicPostList(
+              detail: detail,
+              scrollController: _controller.scrollController,
+              centerKey: _centerKey,
+              headerKey: _headerKey,
+              highlightPostNumber: highlightPostNumber,
+              typingUsers: typingUsers,
+              isLoggedIn: isLoggedIn,
+              hasMoreBefore: notifier.hasMoreBefore,
+              hasMoreAfter: notifier.hasMoreAfter,
+              isLoadingPrevious: notifier.isLoadingPrevious,
+              isLoadingMore: notifier.isLoadingMore,
+              centerPostIndex: centerPostIndex,
+              dividerPostIndex: dividerPostIndex,
+              onPostVisibilityChanged: _controller.onPostVisibilityChanged,
+              onJumpToPost: _scrollToPost,
+              onReply: _handleReply,
+              onEdit: _handleEdit,
+              onShareAsImage: _sharePostAsImage,
+              onRefreshPost: _handleRefreshPost,
+              onVoteChanged: _handleVoteChanged,
+              onNotificationLevelChanged: (level) => _handleNotificationLevelChanged(notifier, level),
+              onSolutionChanged: _handleSolutionChanged,
+              onScrollNotification: _controller.handleScrollNotification,
+            );
+          },
         );
       },
     );
