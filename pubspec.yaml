@@ -64,6 +64,10 @@ dependencies:
   app_links: ^7.0.0
   chat_bottom_container: ^0.4.0
 
+  window_manager: ^0.5.1
+
+  chewie: any
+  video_player: any
   ffi: any
 dev_dependencies:
   flutter_test:

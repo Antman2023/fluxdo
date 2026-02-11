@@ -4,6 +4,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../services/discourse_cache_manager.dart';
 
+import 'builders/video_builder.dart';
 import 'image_utils.dart';
 import 'lazy_image.dart';
 import '../../common/hero_image.dart';
@@ -272,6 +273,36 @@ class DiscourseWidgetFactory extends WidgetFactory {
   }
 
 
+
+  @override
+  Widget? buildVideoPlayer(
+    BuildTree tree,
+    String url, {
+    required bool autoplay,
+    required bool controls,
+    double? height,
+    required bool loop,
+    String? posterUrl,
+    double? width,
+  }) {
+    final dimensOk = height != null && height > 0 && width != null && width > 0;
+    final poster = posterUrl != null
+        ? buildImage(tree, ImageMetadata(sources: [ImageSource(posterUrl)]))
+        : null;
+    return DiscourseVideoPlayer(
+      url,
+      aspectRatio: dimensOk ? width / height : 16 / 9,
+      autoResize: !dimensOk,
+      autoplay: autoplay,
+      controls: controls,
+      errorBuilder: (context, _, error) =>
+          onErrorBuilder(context, tree, error, url) ?? widget0,
+      loadingBuilder: (context, _, child) =>
+          onLoadingBuilder(context, tree, null, url) ?? widget0,
+      loop: loop,
+      poster: poster,
+    );
+  }
 
   /// 检查 URL 是否为 SVG（处理带查询参数的情况）
   bool _isSvgUrl(String? url) {
