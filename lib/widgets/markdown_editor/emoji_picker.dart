@@ -88,12 +88,18 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
     if (_tabController == null) {
       _tabController = TabController(length: length, vsync: this);
     } else if (_tabController!.length != length) {
-      // 需要在下一帧重建 TabController，避免在 build 过程中 dispose
       final oldController = _tabController;
-      _tabController = TabController(length: length, vsync: this);
-      // 延迟 dispose 旧的 controller
+      final oldIndex = oldController!.index;
+      // 新增了"常用"tab 在最前面时，原来的索引需要 +1
+      final addedTabs = length - oldController.length;
+      final newIndex = (oldIndex + addedTabs).clamp(0, length - 1);
+      _tabController = TabController(
+        length: length,
+        vsync: this,
+        initialIndex: newIndex,
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        oldController?.dispose();
+        oldController.dispose();
       });
     }
   }

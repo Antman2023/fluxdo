@@ -417,20 +417,15 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // DraggableScrollableSheet 提供了全屏拖拽能力
-    // initialChildSize = minChildSize = maxChildSize = 0.95 即为固定高度
-    // 使用 SafeArea(bottom: false)：顶部安全区域由 SafeArea 处理，
+    // 使用 FractionallySizedBox 固定 0.95 高度
+    // SafeArea(bottom: false)：顶部安全区域由 SafeArea 处理，
     // 底部安全区域由 ChatBottomPanelContainer 内部管理，避免双重底部间距
     return SafeArea(
       bottom: false,
-      child: DraggableScrollableSheet(
-      initialChildSize: 0.95,
-      minChildSize: 0.95,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        // 使用 Scaffold 自动处理键盘避让 (resizeToAvoidBottomInset)
-        return Scaffold(
+      child: FractionallySizedBox(
+        heightFactor: 0.95,
+        alignment: Alignment.bottomCenter,
+        child: Scaffold(
           backgroundColor: Colors.transparent,
           resizeToAvoidBottomInset: false,
           // PopScope 用于处理表情面板开启时的返回逻辑
@@ -627,9 +622,8 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
               ),
           ]),
           ),
-        );
-      },
-    ),
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:chat_bottom_container/chat_bottom_container.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,6 +90,8 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   final _panelController = ChatBottomPanelContainerController<EditorPanelType>();
   EditorPanelType _currentPanelType = EditorPanelType.none;
   bool _readOnly = false;
+  // 表情面板意图状态：用于防止焦点变化导致的面板状态竞争
+  bool _emojiPanelIntended = false;
 
   @override
   void initState() {
@@ -276,21 +279,42 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
   /// 关闭表情面板（供外部调用）
   void closeEmojiPanel() {
-    if (_currentPanelType == EditorPanelType.emoji) {
-      _updateReadOnly(false);
-      _panelController.updatePanelType(ChatBottomPanelType.none);
+    if (_emojiPanelIntended || _currentPanelType == EditorPanelType.emoji) {
+      _emojiPanelIntended = false;
+      if (!_isDesktop) _updateReadOnly(false);
+      _panelController.updatePanelType(
+        ChatBottomPanelType.none,
+        forceHandleFocus: ChatBottomHandleFocus.none,
+      );
     }
   }
 
-  /// 切换表情面板（参考 PiliPlus 实现）
+  /// 桌面端没有软键盘
+  static final bool _isDesktop = defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.windows;
+
+  /// 切换表情面板
   void _toggleEmojiPanel() {
-    if (_currentPanelType == EditorPanelType.emoji) {
-      // 从表情面板切回键盘
-      _updateReadOnly(false);
-      _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+    if (_emojiPanelIntended) {
+      // 关闭表情面板
+      _emojiPanelIntended = false;
+      if (_isDesktop) {
+        _panelController.updatePanelType(
+          ChatBottomPanelType.none,
+          forceHandleFocus: ChatBottomHandleFocus.none,
+        );
+        _focusNode.requestFocus();
+      } else {
+        _updateReadOnly(false);
+        _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+      }
     } else {
-      // 切到表情面板：readOnly=true 防止键盘弹出，requestFocus 保持光标可见
-      _updateReadOnly(true);
+      // 打开表情面板
+      _emojiPanelIntended = true;
+      if (!_isDesktop) {
+        _updateReadOnly(true);
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _panelController.updatePanelType(
@@ -309,7 +333,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     }
   }
 
-  /// 滚动到光标位置（不检查焦点状态，用于面板切换后）
+  /// 滚动到光标位置
   void _scrollToCursor() {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -337,24 +361,22 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
       final caretRect = editable!.getLocalRectForCaret(
         TextPosition(offset: selection.baseOffset),
       );
-      final cursorTop = caretRect.top;
-      final cursorBottom = caretRect.bottom;
 
       final position = _scrollController.position;
-      final viewportTop = position.pixels;
-      final viewportBottom = viewportTop + position.viewportDimension;
+      // caretRect 是 viewport 局部坐标（0=视口顶部，viewportDimension=视口底部）
+      double? target;
+      if (caretRect.bottom > position.viewportDimension) {
+        // 光标在视口下方，需要向下滚
+        target = position.pixels + caretRect.bottom - position.viewportDimension + 8.0;
+      } else if (caretRect.top < 0) {
+        // 光标在视口上方，需要向上滚
+        target = position.pixels + caretRect.top - 8.0;
+      }
 
-      if (cursorBottom > viewportBottom) {
+      if (target != null) {
         _scrollController.animateTo(
-          (cursorBottom - position.viewportDimension + 8.0)
-              .clamp(0.0, position.maxScrollExtent),
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-        );
-      } else if (cursorTop < viewportTop) {
-        _scrollController.animateTo(
-          (cursorTop - 8.0).clamp(0.0, position.maxScrollExtent),
-          duration: const Duration(milliseconds: 100),
+          target.clamp(0.0, position.maxScrollExtent),
+          duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
         );
       }
@@ -367,7 +389,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   }
 
   /// 当前是否显示表情面板
-  bool get showEmojiPanel => _currentPanelType == EditorPanelType.emoji;
+  bool get showEmojiPanel => _emojiPanelIntended;
 
   void _applyPanguSpacing() {
     if (_isApplyingPangu) return;
@@ -485,8 +507,11 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                 ),
         ),
 
-        // 工具栏（纯按钮行）
-        MarkdownToolbar(
+        // 工具栏（纯按钮行，不抢夺编辑器焦点）
+        Focus(
+          canRequestFocus: false,
+          descendantsAreFocusable: false,
+          child: MarkdownToolbar(
           key: _toolbarKey,
           controller: widget.controller,
           focusNode: _focusNode,
@@ -496,7 +521,8 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
           onApplyPangu: _applyPanguSpacing,
           showPanguButton: true,
           onToggleEmoji: _toggleEmojiPanel,
-          isEmojiPanelVisible: _currentPanelType == EditorPanelType.emoji,
+          isEmojiPanelVisible: _emojiPanelIntended,
+        ),
         ),
 
         // 键盘/面板容器（管理键盘占位、表情面板、安全区域）
@@ -530,9 +556,9 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
             if (wasEmoji != isEmoji) {
               widget.onEmojiPanelChanged?.call(isEmoji);
-              // 从无面板直接打开表情时，需要滚动到光标位置
+              // 面板展开后，等 AnimatedSize 动画（200ms）结束再滚动到光标位置
               if (isEmoji && wasNone) {
-                Future.delayed(const Duration(milliseconds: 400), () {
+                Future.delayed(const Duration(milliseconds: 200), () {
                   _scrollToCursor();
                 });
               }

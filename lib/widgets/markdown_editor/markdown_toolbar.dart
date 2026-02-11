@@ -84,14 +84,16 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
         !HardwareKeyboard.instance.isAltPressed &&
         (HardwareKeyboard.instance.isMetaPressed ||
             HardwareKeyboard.instance.isControlPressed)) {
-      _handlePaste();
-      return true;
+      _handlePasteImage();
+      // 不返回 true：让 TextField 自行处理文本粘贴，
+      // 仅在检测到图片时通过上传流程处理
+      return false;
     }
     return false;
   }
 
-  /// 处理粘贴事件：优先检测剪贴板图片，否则粘贴文本
-  Future<void> _handlePaste() async {
+  /// 处理粘贴事件：仅检测剪贴板图片，文本粘贴由 TextField 自行处理
+  Future<void> _handlePasteImage() async {
     try {
       final imageBytes = await Pasteboard.image;
       if (imageBytes != null && imageBytes.isNotEmpty) {
@@ -103,16 +105,9 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
 
         if (!mounted) return;
         await uploadImageFromPath(imagePath: tempFile.path, imageName: fileName);
-        return;
       }
     } catch (_) {
-      // 读取图片失败，回退到文本粘贴
-    }
-
-    // 无图片，粘贴文本
-    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-    if (clipboardData?.text != null) {
-      insertText(clipboardData!.text!);
+      // 读取图片失败，忽略，文本粘贴由 TextField 自行处理
     }
   }
 
