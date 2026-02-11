@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 import '../../../constants.dart';
 import '../../../models/topic.dart';
 import '../../../pages/topic_detail_page/topic_detail_page.dart';
@@ -37,7 +36,6 @@ class PostItem extends ConsumerStatefulWidget {
   final VoidCallback? onShareAsImage;
   final void Function(int postId)? onRefreshPost;
   final void Function(int postNumber)? onJumpToPost;
-  final void Function(bool isVisible)? onVisibilityChanged;
   final void Function(int postId, bool accepted)? onSolutionChanged;
   final bool highlight;
   final bool isTopicOwner;
@@ -54,7 +52,6 @@ class PostItem extends ConsumerStatefulWidget {
     this.onShareAsImage,
     this.onRefreshPost,
     this.onJumpToPost,
-    this.onVisibilityChanged,
     this.onSolutionChanged,
     this.highlight = false,
     this.isTopicOwner = false,
@@ -69,9 +66,6 @@ class PostItem extends ConsumerStatefulWidget {
 class _PostItemState extends ConsumerState<PostItem> {
   final DiscourseService _service = DiscourseService();
   final GlobalKey _likeButtonKey = GlobalKey();
-
-  // 可见性状态
-  bool _isVisible = false;
 
   // 点赞状态
   bool _isLiking = false;
@@ -306,16 +300,7 @@ class _PostItemState extends ConsumerState<PostItem> {
             ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
             : backgroundColor;
 
-    return VisibilityDetector(
-      key: Key('post-visibility-${post.id}'),
-      onVisibilityChanged: (info) {
-        final isVisible = info.visibleFraction > 0;
-        if (isVisible != _isVisible) {
-          _isVisible = isVisible;
-          widget.onVisibilityChanged?.call(isVisible);
-        }
-      },
-      child: RepaintBoundary(
+    return RepaintBoundary(
         child: Opacity(
           opacity: post.isDeleted ? 0.6 : 1.0,
           child: Container(
@@ -541,7 +526,6 @@ class _PostItemState extends ConsumerState<PostItem> {
               ),
             ],
           ),
-        ),
         ),
       ),
     );

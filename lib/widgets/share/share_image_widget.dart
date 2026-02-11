@@ -220,6 +220,7 @@ class ShareImageWidget extends ConsumerWidget {
         compact: false,
         enableSelectionArea: false,
         enablePanguSpacing: false,
+        screenshotMode: true,
       ),
     );
   }

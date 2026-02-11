@@ -1,6 +1,57 @@
 import 'package:flutter/material.dart';
 import '../models/topic.dart';
 
+/// 链接风险等级
+enum LinkRiskLevel {
+  /// 内部链接，无需拦截
+  internal,
+
+  /// 信任链接，无需拦截
+  trusted,
+
+  /// 普通外部链接，显示确认
+  normal,
+
+  /// 风险链接（如短链接服务），显示警告
+  risky,
+
+  /// 危险链接（如推广链接），显示强烈警告
+  dangerous,
+
+  /// 阻止链接，不允许访问
+  blocked,
+}
+
+/// 链接安全配置
+class LinkSecurityConfig {
+  /// 是否启用外部链接确认
+  final bool enableExitConfirmation;
+
+  /// 内部域名（不拦截）
+  final List<String> internalDomains;
+
+  /// 信任域名（不拦截）
+  final List<String> trustedDomains;
+
+  /// 风险域名（显示警告）
+  final List<String> riskyDomains;
+
+  /// 危险域名（显示强烈警告）
+  final List<String> dangerousDomains;
+
+  /// 阻止域名（禁止访问）
+  final List<String> blockedDomains;
+
+  const LinkSecurityConfig({
+    this.enableExitConfirmation = true,
+    this.internalDomains = const [],
+    this.trustedDomains = const [],
+    this.riskyDomains = const [],
+    this.dangerousDomains = const [],
+    this.blockedDomains = const [],
+  });
+}
+
 /// 头像光晕匹配规则
 class AvatarGlowRule {
   /// 按群组匹配
@@ -41,9 +92,13 @@ class SiteCustomization {
   /// 用户头衔特殊渲染规则列表
   final List<UserTitleStyleRule> userTitleStyleRules;
 
+  /// 链接安全配置
+  final LinkSecurityConfig? linkSecurityConfig;
+
   const SiteCustomization({
     this.avatarGlowRules = const [],
     this.userTitleStyleRules = const [],
+    this.linkSecurityConfig,
   });
 
   /// 匹配头像光晕（返回光晕颜色，null 表示无光晕）

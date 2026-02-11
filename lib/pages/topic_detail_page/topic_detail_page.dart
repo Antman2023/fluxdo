@@ -154,7 +154,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
           _screenTrack.scrolled();
         }
       },
-      onStreamIndexChanged: _updateStreamIndexForPostNumber,
     );
 
     _controller.scrollController.addListener(_onScroll);
@@ -859,7 +858,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> with WidgetsB
               isLoadingMore: notifier.isLoadingMore,
               centerPostIndex: centerPostIndex,
               dividerPostIndex: dividerPostIndex,
-              onPostVisibilityChanged: _controller.onPostVisibilityChanged,
+              onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
+              onVisiblePostsChanged: _updateVisiblePosts,
               onJumpToPost: _scrollToPost,
               onReply: _handleReply,
               onEdit: _handleEdit,

@@ -52,6 +52,10 @@ extension _ScrollActions on _TopicDetailPageState {
     _controller.setReadPostNumbers(readPostNumbers);
   }
 
+  void _updateVisiblePosts(Set<int> visiblePostNumbers) {
+    _controller.updateVisiblePosts(visiblePostNumbers);
+  }
+
   Future<void> _scrollToTop() async {
     final params = _params;
     final detail = ref.read(topicDetailProvider(params)).value;

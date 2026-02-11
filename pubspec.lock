@@ -49,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
+  archive:
+    dependency: transitive
+    description:
+      name: archive
+      sha256: "2fde1607386ab523f7a36bb3e7edb43bd58e6edaf2ffb29d8a6d578b297fdbbd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.7"
   args:
     dependency: transitive
     description:
@@ -113,6 +121,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  chat_bottom_container:
+    dependency: "direct main"
+    description:
+      name: chat_bottom_container
+      sha256: "29c99d930d619383f4bfbdb6e802d173b5bf68ec81cf5d2e0aaba93f441770e8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0"
   chewie:
     dependency: transitive
     description:
@@ -836,6 +852,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.0"
+  image:
+    dependency: "direct main"
+    description:
+      name: image
+      sha256: "492bd52f6c4fbb6ee41f781ff27765ce5f627910e1e0cbecfa3d9add5562604c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.7.2"
   image_picker:
     dependency: "direct main"
     description:
@@ -1139,6 +1163,14 @@ packages:
       relative: true
     source: path
     version: "1.0.0"
+  pasteboard:
+    dependency: "direct main"
+    description:
+      name: pasteboard
+      sha256: "9ff73ada33f79a59ff91f6c01881fd4ed0a0031cfc4ae2d86c0384471525fca1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0"
   path:
     dependency: "direct main"
     description:
@@ -1243,6 +1275,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.4.0"
+  posix:
+    dependency: transitive
+    description:
+      name: posix
+      sha256: "6323a5b0fa688b6a010df4905a56b00181479e6d10534cecfecede2aa55add61"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.0.3"
   pro_image_editor:
     dependency: "direct main"
     description:

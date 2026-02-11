@@ -15,7 +15,7 @@ import 'typing_indicator.dart';
 /// Flutter 只构建视口附近的帖子，远离视口的帖子不会被构建。
 /// 长帖子内部的 HTML 分块由 ChunkedHtmlContent 的 Column + SelectionArea 处理，
 /// 保留跨块文本选择能力。
-class TopicPostList extends StatelessWidget {
+class TopicPostList extends StatefulWidget {
   final TopicDetail detail;
   final AutoScrollController scrollController;
   final GlobalKey centerKey;
@@ -29,7 +29,8 @@ class TopicPostList extends StatelessWidget {
   final bool isLoadingMore;
   final int centerPostIndex;
   final int? dividerPostIndex;
-  final void Function(int postNumber, bool isVisible) onPostVisibilityChanged;
+  final void Function(int postNumber) onFirstVisiblePostChanged;
+  final void Function(Set<int> visiblePostNumbers)? onVisiblePostsChanged;
   final void Function(int postNumber) onJumpToPost;
   final void Function(Post? replyToPost) onReply;
   final void Function(Post post) onEdit;
@@ -55,7 +56,8 @@ class TopicPostList extends StatelessWidget {
     required this.isLoadingMore,
     required this.centerPostIndex,
     required this.dividerPostIndex,
-    required this.onPostVisibilityChanged,
+    required this.onFirstVisiblePostChanged,
+    this.onVisiblePostsChanged,
     required this.onJumpToPost,
     required this.onReply,
     required this.onEdit,
@@ -66,6 +68,132 @@ class TopicPostList extends StatelessWidget {
     this.onSolutionChanged,
     required this.onScrollNotification,
   });
+
+  @override
+  State<TopicPostList> createState() => _TopicPostListState();
+}
+
+class _TopicPostListState extends State<TopicPostList> {
+  int? _lastReportedPostNumber;
+  bool _isThrottled = false;
+
+  // 便捷 getter，简化 widget.xxx 访问
+  TopicDetail get detail => widget.detail;
+  AutoScrollController get scrollController => widget.scrollController;
+  GlobalKey get centerKey => widget.centerKey;
+  GlobalKey get headerKey => widget.headerKey;
+  int? get highlightPostNumber => widget.highlightPostNumber;
+  List<TypingUser> get typingUsers => widget.typingUsers;
+  bool get isLoggedIn => widget.isLoggedIn;
+  bool get hasMoreBefore => widget.hasMoreBefore;
+  bool get hasMoreAfter => widget.hasMoreAfter;
+  bool get isLoadingPrevious => widget.isLoadingPrevious;
+  bool get isLoadingMore => widget.isLoadingMore;
+  int get centerPostIndex => widget.centerPostIndex;
+  int? get dividerPostIndex => widget.dividerPostIndex;
+  void Function(int postNumber) get onJumpToPost => widget.onJumpToPost;
+  void Function(Post? replyToPost) get onReply => widget.onReply;
+  void Function(Post post) get onEdit => widget.onEdit;
+  void Function(Post post)? get onShareAsImage => widget.onShareAsImage;
+  void Function(int postId) get onRefreshPost => widget.onRefreshPost;
+  void Function(int, bool) get onVoteChanged => widget.onVoteChanged;
+  void Function(TopicNotificationLevel)? get onNotificationLevelChanged => widget.onNotificationLevelChanged;
+  void Function(int postId, bool accepted)? get onSolutionChanged => widget.onSolutionChanged;
+  bool Function(ScrollNotification) get onScrollNotification => widget.onScrollNotification;
+  void Function(Set<int> visiblePostNumbers)? get onVisiblePostsChanged => widget.onVisiblePostsChanged;
+
+  /// 检测第一个可见帖子（通过 AutoScrollController 的 tagMap）
+  void _updateFirstVisiblePost() {
+    final posts = detail.postStream.posts;
+    if (posts.isEmpty) return;
+
+    // 使用 AutoScrollController 的 tagMap 来确定可见帖子
+    final tagMap = scrollController.tagMap;
+    if (tagMap.isEmpty) return;
+
+    // 获取视口高度
+    if (!scrollController.hasClients) return;
+    final viewportHeight = scrollController.position.viewportDimension;
+
+    // 获取顶部栏高度（AppBar + 状态栏）
+    final topBarHeight = kToolbarHeight + MediaQuery.of(context).padding.top;
+
+    // 找到第一个在视口顶部附近的帖子，同时收集所有可见帖子
+    int? firstVisiblePostIndex;
+    double bestOffset = double.infinity;
+    final visiblePostNumbers = <int>{};
+
+    for (final entry in tagMap.entries) {
+      final postIndex = entry.key;
+      if (postIndex >= posts.length) continue;
+
+      final tagState = entry.value;
+      final ctx = tagState.context;
+      if (!ctx.mounted) continue;
+
+      final renderBox = ctx.findRenderObject() as RenderBox?;
+      if (renderBox == null || !renderBox.hasSize) continue;
+
+      // 获取帖子顶部相对于屏幕的位置
+      final globalPosition = renderBox.localToGlobal(Offset.zero);
+      final topY = globalPosition.dy;
+
+      // 相对于可见区域顶部的位置（减去顶部栏高度）
+      final relativeTopY = topY - topBarHeight;
+
+      // 帖子在可见区域内（考虑顶部栏遮挡）
+      if (topY < viewportHeight && topY > topBarHeight - renderBox.size.height) {
+        // 添加到可见帖子集合
+        visiblePostNumbers.add(posts[postIndex].postNumber);
+
+        // 找到最靠近可见区域顶部（或刚超过顶部）的帖子
+        if (relativeTopY <= 0 && relativeTopY.abs() < bestOffset) {
+          bestOffset = relativeTopY.abs();
+          firstVisiblePostIndex = postIndex;
+        } else if (firstVisiblePostIndex == null && relativeTopY > 0) {
+          // 没有帖子超过顶部，取最靠近顶部的
+          if (relativeTopY < bestOffset) {
+            bestOffset = relativeTopY;
+            firstVisiblePostIndex = postIndex;
+          }
+        }
+      }
+    }
+
+    // 通知可见帖子变化（用于 screenTrack）
+    if (visiblePostNumbers.isNotEmpty) {
+      onVisiblePostsChanged?.call(visiblePostNumbers);
+    }
+
+    if (firstVisiblePostIndex != null) {
+      final postNumber = posts[firstVisiblePostIndex].postNumber;
+
+      // 防止重复报告相同的帖子
+      if (postNumber != _lastReportedPostNumber) {
+        _lastReportedPostNumber = postNumber;
+        widget.onFirstVisiblePostChanged(postNumber);
+      }
+    }
+  }
+
+  /// 处理滚动通知，同时更新可见帖子
+  bool _handleScrollNotification(ScrollNotification notification) {
+    // 先调用原有的滚动通知处理
+    final result = onScrollNotification(notification);
+
+    // 在滚动更新时检测可见帖子（节流 16ms）
+    if (notification is ScrollUpdateNotification && !_isThrottled) {
+      _isThrottled = true;
+      Future.delayed(const Duration(milliseconds: 16), () {
+        if (mounted) {
+          _isThrottled = false;
+          _updateFirstVisiblePost();
+        }
+      });
+    }
+
+    return result;
+  }
 
   /// 在大屏上为内容添加宽度约束
   Widget _wrapContent(BuildContext context, Widget child) {
@@ -90,13 +218,13 @@ class TopicPostList extends StatelessWidget {
     );
 
     return NotificationListener<ScrollNotification>(
-      onNotification: onScrollNotification,
+      onNotification: _handleScrollNotification,
       child: CustomScrollView(
-        controller: scrollController,
-        center: centerKey,
-        cacheExtent: 500,
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        slivers: [
+          controller: scrollController,
+          center: centerKey,
+          cacheExtent: 500,
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          slivers: [
           // 向上加载骨架屏
           if (hasMoreBefore && isLoadingPrevious)
             LoadingSkeletonSliver(
@@ -232,8 +360,6 @@ class TopicPostList extends StatelessWidget {
                 onRefreshPost: onRefreshPost,
                 onJumpToPost: onJumpToPost,
                 onSolutionChanged: onSolutionChanged,
-                onVisibilityChanged: (isVisible) =>
-                    onPostVisibilityChanged(post.postNumber, isVisible),
               ),
             ],
           ),

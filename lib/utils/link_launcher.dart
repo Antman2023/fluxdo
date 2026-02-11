@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/site_customization.dart';
 import '../constants.dart';
 import '../pages/user_profile_page.dart';
 import '../pages/webview_page.dart';
 import '../providers/preferences_provider.dart';
+import '../widgets/common/external_link_confirm_dialog.dart';
+import 'link_security.dart';
 import 'url_helper.dart';
 
 const _browserChannel = MethodChannel('com.github.lingyan000.fluxdo/browser');
@@ -36,16 +39,49 @@ bool isInternalUrlString(String url) {
 /// 打开外部链接
 ///
 /// 根据用户偏好决定使用内置浏览器还是外部浏览器
+/// 如果启用了链接安全检查，会根据链接风险等级显示确认对话框
 Future<void> launchExternalLink(BuildContext context, String url) async {
   if (url.isEmpty) return;
   final uri = Uri.tryParse(url);
   if (uri == null) return;
 
-  final prefs =
-      ProviderScope.containerOf(context, listen: false).read(preferencesProvider);
+  // 链接安全检查
+  final config = AppConstants.siteCustomization.linkSecurityConfig;
+  if (config != null && config.enableExitConfirmation) {
+    final riskLevel = LinkSecurity.checkUrl(url, config);
+
+    switch (riskLevel) {
+      case LinkRiskLevel.internal:
+      case LinkRiskLevel.trusted:
+        // 内部或信任链接，直接打开
+        break;
+      case LinkRiskLevel.blocked:
+        // 阻止链接，显示阻止提示
+        await showLinkBlockedDialog(context, url);
+        return;
+      case LinkRiskLevel.normal:
+      case LinkRiskLevel.risky:
+      case LinkRiskLevel.dangerous:
+        // 需要确认的链接，显示确认对话框
+        final confirmed = await showExternalLinkConfirmDialog(
+          context,
+          url,
+          riskLevel,
+        );
+        if (confirmed != true) return;
+        break;
+    }
+  }
+
+  final prefs = ProviderScope.containerOf(
+    // ignore: use_build_context_synchronously
+    context,
+    listen: false,
+  ).read(preferencesProvider);
   final preferInApp = prefs.openExternalLinksInAppBrowser;
 
   if (preferInApp && (uri.scheme == 'http' || uri.scheme == 'https')) {
+    // ignore: use_build_context_synchronously
     WebViewPage.open(context, url);
     return;
   }

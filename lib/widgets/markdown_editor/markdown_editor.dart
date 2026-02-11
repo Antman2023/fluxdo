@@ -1,39 +1,59 @@
+import 'dart:math';
+
+import 'package:chat_bottom_container/chat_bottom_container.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/preferences_provider.dart';
 import '../../services/emoji_handler.dart';
 import '../mention/mention_autocomplete.dart';
+import 'emoji_picker.dart';
 import 'markdown_renderer.dart';
 import 'markdown_toolbar.dart';
 import 'package:pangutext/pangutext.dart';
+
+/// 编辑器面板类型
+enum EditorPanelType { none, keyboard, emoji }
 
 /// 通用 Markdown 编辑器组件
 /// 包含编辑/预览模式切换、工具栏和表情面板
 class MarkdownEditor extends ConsumerStatefulWidget {
   /// 内容控制器（必需）
   final TextEditingController controller;
-  
+
   /// 焦点节点（可选，不传则内部创建）
   final FocusNode? focusNode;
-  
+
   /// 提示文本
   final String hintText;
-  
+
   /// 最小行数（仅当 expands 为 false 时生效）
   final int minLines;
-  
+
   /// 是否扩展填满可用空间
   final bool expands;
-  
+
   /// 表情面板高度
   final double emojiPanelHeight;
-  
+
   /// 表情面板状态变化回调
   final ValueChanged<bool>? onEmojiPanelChanged;
 
   /// 用户提及数据源（可选，不传则不启用 @用户 功能）
   final MentionDataSource? mentionDataSource;
+
+  /// 是否显示预览按钮
+  final bool showPreviewButton;
+
+  /// 外部预览切换回调（可选）
+  /// 提供时，预览按钮将调用此回调而非内部预览切换，
+  /// 同时应配合 [isPreview] 传入当前预览状态
+  final VoidCallback? onTogglePreview;
+
+  /// 外部预览状态（可选，配合 [onTogglePreview] 使用）
+  final bool? isPreview;
 
   const MarkdownEditor({
     super.key,
@@ -45,6 +65,9 @@ class MarkdownEditor extends ConsumerStatefulWidget {
     this.emojiPanelHeight = 280.0,
     this.onEmojiPanelChanged,
     this.mentionDataSource,
+    this.showPreviewButton = true,
+    this.onTogglePreview,
+    this.isPreview,
   });
 
   @override
@@ -56,11 +79,19 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   bool _ownsFocusNode = false;
 
   final _toolbarKey = GlobalKey<MarkdownToolbarState>();
+  final _scrollController = ScrollController();
   final _pangu = Pangu();
   bool _isApplyingPangu = false;
 
   bool _showPreview = false;
   String _previousText = '';
+
+  // 面板控制器
+  final _panelController = ChatBottomPanelContainerController<EditorPanelType>();
+  EditorPanelType _currentPanelType = EditorPanelType.none;
+  bool _readOnly = false;
+  // 表情面板意图状态：用于防止焦点变化导致的面板状态竞争
+  bool _emojiPanelIntended = false;
 
   @override
   void initState() {
@@ -79,6 +110,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   @override
   void dispose() {
     widget.controller.removeListener(_handleTextChange);
+    _scrollController.dispose();
     if (_ownsFocusNode) {
       _focusNode.dispose();
     }
@@ -221,33 +253,143 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
     _previousText = currentText;
   }
-  
+
+  /// 当前是否处于预览模式（优先使用外部状态）
+  bool get _isPreview => widget.isPreview ?? _showPreview;
+
   void _togglePreview() {
-    setState(() {
-      _showPreview = !_showPreview;
-      if (_showPreview) {
-        FocusScope.of(context).unfocus();
-        _toolbarKey.currentState?.closeEmojiPanel();
+    if (widget.onTogglePreview != null) {
+      // 外部控制预览
+      widget.onTogglePreview!();
+    } else {
+      // 内部控制预览
+      setState(() {
+        _showPreview = !_showPreview;
+        if (_showPreview) {
+          FocusScope.of(context).unfocus();
+          closeEmojiPanel();
+        } else {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _focusNode.requestFocus();
+          });
+        }
+      });
+    }
+  }
+
+  /// 关闭表情面板（供外部调用）
+  void closeEmojiPanel() {
+    if (_emojiPanelIntended || _currentPanelType == EditorPanelType.emoji) {
+      _emojiPanelIntended = false;
+      if (!_isDesktop) _updateReadOnly(false);
+      _panelController.updatePanelType(
+        ChatBottomPanelType.none,
+        forceHandleFocus: ChatBottomHandleFocus.none,
+      );
+    }
+  }
+
+  /// 桌面端没有软键盘
+  static final bool _isDesktop = defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.windows;
+
+  /// 切换表情面板
+  void _toggleEmojiPanel() {
+    if (_emojiPanelIntended) {
+      // 关闭表情面板
+      _emojiPanelIntended = false;
+      if (_isDesktop) {
+        _panelController.updatePanelType(
+          ChatBottomPanelType.none,
+          forceHandleFocus: ChatBottomHandleFocus.none,
+        );
+        _focusNode.requestFocus();
       } else {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _focusNode.requestFocus();
-        });
+        _updateReadOnly(false);
+        _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+      }
+    } else {
+      // 打开表情面板
+      _emojiPanelIntended = true;
+      if (!_isDesktop) {
+        _updateReadOnly(true);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _panelController.updatePanelType(
+          ChatBottomPanelType.other,
+          data: EditorPanelType.emoji,
+          forceHandleFocus: ChatBottomHandleFocus.requestFocus,
+        );
+      });
+    }
+  }
+
+  /// 更新 readOnly 状态
+  void _updateReadOnly(bool value) {
+    if (_readOnly != value) {
+      setState(() => _readOnly = value);
+    }
+  }
+
+  /// 滚动到光标位置
+  void _scrollToCursor() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+
+      final selection = widget.controller.selection;
+      if (!selection.isValid) return;
+
+      final renderObject = context.findRenderObject();
+      if (renderObject == null) return;
+
+      RenderEditable? editable;
+      void find(RenderObject obj) {
+        if (editable != null) return;
+        if (obj is RenderEditable) {
+          editable = obj;
+        } else {
+          obj.visitChildren(find);
+        }
+      }
+      renderObject.visitChildren(find);
+
+      if (editable == null) return;
+
+      final caretRect = editable!.getLocalRectForCaret(
+        TextPosition(offset: selection.baseOffset),
+      );
+
+      final position = _scrollController.position;
+      // caretRect 是 viewport 局部坐标（0=视口顶部，viewportDimension=视口底部）
+      double? target;
+      if (caretRect.bottom > position.viewportDimension) {
+        // 光标在视口下方，需要向下滚
+        target = position.pixels + caretRect.bottom - position.viewportDimension + 8.0;
+      } else if (caretRect.top < 0) {
+        // 光标在视口上方，需要向上滚
+        target = position.pixels + caretRect.top - 8.0;
+      }
+
+      if (target != null) {
+        _scrollController.animateTo(
+          target.clamp(0.0, position.maxScrollExtent),
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
-  
-  /// 关闭表情面板（供外部调用）
-  void closeEmojiPanel() {
-    _toolbarKey.currentState?.closeEmojiPanel();
-  }
-  
+
   /// 请求焦点
   void requestFocus() {
     _focusNode.requestFocus();
   }
-  
+
   /// 当前是否显示表情面板
-  bool get showEmojiPanel => _toolbarKey.currentState?.showEmojiPanel ?? false;
+  bool get showEmojiPanel => _emojiPanelIntended;
 
   void _applyPanguSpacing() {
     if (_isApplyingPangu) return;
@@ -280,6 +422,9 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     final textField = TextField(
       controller: widget.controller,
       focusNode: _focusNode,
+      scrollController: _scrollController,
+      readOnly: _readOnly,
+      showCursor: true,
       maxLines: null,
       minLines: widget.expands ? null : widget.minLines,
       expands: widget.expands,
@@ -289,9 +434,17 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         hintText: widget.hintText,
         border: InputBorder.none,
       ),
-      onTap: () {
-        _toolbarKey.currentState?.closeEmojiPanel();
+    );
+
+    // 用 Listener 捕获点击：readOnly 模式下点击切回键盘
+    final wrappedField = Listener(
+      onPointerUp: (_) {
+        if (_readOnly) {
+          _updateReadOnly(false);
+          _panelController.updatePanelType(ChatBottomPanelType.keyboard);
+        }
       },
+      child: textField,
     );
 
     // 如果提供了 mentionDataSource，则包裹 MentionAutocomplete
@@ -300,22 +453,45 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
         controller: widget.controller,
         focusNode: _focusNode,
         dataSource: widget.mentionDataSource!,
-        child: textField,
+        child: wrappedField,
       );
     }
 
-    return textField;
+    return wrappedField;
+  }
+
+  /// 构建表情面板，高度与键盘一致
+  Widget _buildEmojiPanel() {
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final keyboardHeight = _panelController.keyboardHeight;
+    // 键盘高度已知时直接使用（与 _KeyboardPlaceholder 等高），
+    // 否则用 emojiPanelHeight 兜底
+    final height = keyboardHeight > 0
+        ? max(keyboardHeight, safeBottom)
+        : max(widget.emojiPanelHeight, safeBottom);
+    return Focus(
+      canRequestFocus: false,
+      descendantsAreFocusable: false,
+      child: SizedBox(
+        height: height,
+        child: EmojiPicker(
+          onEmojiSelected: (emoji) {
+            _toolbarKey.currentState?.insertText(':${emoji.name}:');
+          },
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Column(
       children: [
         // 编辑/预览区域
         Expanded(
-          child: _showPreview
+          child: _isPreview && widget.onTogglePreview == null
               ? SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: widget.controller.text.isEmpty
@@ -330,19 +506,126 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
                   child: _buildTextEditor(),
                 ),
         ),
-        
-        // 工具栏
-        MarkdownToolbar(
+
+        // 工具栏（纯按钮行，不抢夺编辑器焦点）
+        Focus(
+          canRequestFocus: false,
+          descendantsAreFocusable: false,
+          child: MarkdownToolbar(
           key: _toolbarKey,
           controller: widget.controller,
           focusNode: _focusNode,
-          isPreview: _showPreview,
+          showPreviewButton: widget.showPreviewButton,
+          isPreview: _isPreview,
           onTogglePreview: _togglePreview,
           onApplyPangu: _applyPanguSpacing,
           showPanguButton: true,
-          emojiPanelHeight: widget.emojiPanelHeight,
+          onToggleEmoji: _toggleEmojiPanel,
+          isEmojiPanelVisible: _emojiPanelIntended,
+        ),
+        ),
+
+        // 键盘/面板容器（管理键盘占位、表情面板、安全区域）
+        ChatBottomPanelContainer<EditorPanelType>(
+          controller: _panelController,
+          inputFocusNode: _focusNode,
+          otherPanelWidget: (type) {
+            if (type == EditorPanelType.emoji) {
+              return _buildEmojiPanel();
+            }
+            return const SizedBox.shrink();
+          },
+          onPanelTypeChange: (panelType, data) {
+            EditorPanelType newType;
+            switch (panelType) {
+              case ChatBottomPanelType.none:
+                newType = EditorPanelType.none;
+              case ChatBottomPanelType.keyboard:
+                newType = EditorPanelType.keyboard;
+              case ChatBottomPanelType.other:
+                newType = data ?? EditorPanelType.none;
+            }
+
+            final wasEmoji = _currentPanelType == EditorPanelType.emoji;
+            final wasNone = _currentPanelType == EditorPanelType.none;
+            final isEmoji = newType == EditorPanelType.emoji;
+
+            setState(() {
+              _currentPanelType = newType;
+            });
+
+            if (wasEmoji != isEmoji) {
+              widget.onEmojiPanelChanged?.call(isEmoji);
+              // 面板展开后，等 AnimatedSize 动画（200ms）结束再滚动到光标位置
+              if (isEmoji && wasNone) {
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  _scrollToCursor();
+                });
+              }
+            }
+          },
+          // 自定义面板容器：键盘和表情面板等高，切换时工具栏位置不变
+          customPanelContainer: (panelType, data) {
+            switch (panelType) {
+              case ChatBottomPanelType.keyboard:
+                return _KeyboardPlaceholder(
+                  color: theme.colorScheme.surface,
+                  nativeKeyboardHeight: _panelController.keyboardHeight,
+                );
+              case ChatBottomPanelType.other:
+                if (data == EditorPanelType.emoji) {
+                  return ColoredBox(
+                    color: theme.colorScheme.surface,
+                    child: _buildEmojiPanel(),
+                  );
+                }
+                return const SizedBox.shrink();
+              case ChatBottomPanelType.none:
+                return _SafeAreaPlaceholder(
+                  color: theme.colorScheme.surface,
+                );
+            }
+          },
         ),
       ],
+    );
+  }
+}
+
+/// 键盘占位组件：使用原生键盘高度，不使用 AnimatedSize，
+/// 与表情面板共用同一高度源（nativeKeyboardHeight），确保切换时等高
+class _KeyboardPlaceholder extends StatelessWidget {
+  final Color color;
+  final double nativeKeyboardHeight;
+
+  const _KeyboardPlaceholder({
+    required this.color,
+    required this.nativeKeyboardHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final height = max(nativeKeyboardHeight, safeBottom);
+    return ColoredBox(
+      color: color,
+      child: SizedBox(width: double.infinity, height: height),
+    );
+  }
+}
+
+/// 安全区域占位组件：无键盘时显示底部安全区域高度
+class _SafeAreaPlaceholder extends StatelessWidget {
+  final Color color;
+
+  const _SafeAreaPlaceholder({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return ColoredBox(
+      color: color,
+      child: SizedBox(width: double.infinity, height: safeBottom),
     );
   }
 }

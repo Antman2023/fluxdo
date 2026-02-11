@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
-import 'package:fluxdo/widgets/markdown_editor/markdown_toolbar.dart';
+import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
 import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/topic.dart';
 
 import 'package:fluxdo/providers/discourse_providers.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
-import 'package:fluxdo/services/emoji_handler.dart';
-import 'package:fluxdo/providers/preferences_provider.dart';
-import 'package:fluxdo/widgets/mention/mention_autocomplete.dart';
 import 'package:fluxdo/widgets/topic/topic_editor_helpers.dart';
 
 /// 编辑话题结果
@@ -50,11 +47,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
-  final _toolbarKey = GlobalKey<MarkdownToolbarState>();
-
-  // 文本处理器
-  final _smartListHandler = SmartListHandler();
-  final _panguHandler = PanguSpacingHandler();
+  final _editorKey = GlobalKey<MarkdownEditorState>();
 
   Category? _selectedCategory;
   List<String> _selectedTags = [];
@@ -86,8 +79,6 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
   @override
   void initState() {
     super.initState();
-    // 初始化 EmojiHandler 以支持预览
-    EmojiHandler().init();
 
     // 预填充数据
     _titleController.text = widget.topicDetail.title;
@@ -140,10 +131,9 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
           _originalContent = raw;
           _contentLength = raw.length;
 
-          // 可编辑时添加监听器
+          // 可编辑时添加字符计数监听器
           if (_canEditContent) {
             _contentController.addListener(_updateContentLength);
-            _contentController.addListener(_handleContentTextChange);
           }
         }
       }
@@ -174,26 +164,6 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
     setState(() => _contentLength = _contentController.text.length);
   }
 
-  void _handleContentTextChange() {
-    // 智能列表续行
-    if (_smartListHandler.handleTextChange(_contentController)) {
-      return;
-    }
-
-    // 自动 Pangu 空格
-    if (ref.read(preferencesProvider).autoPanguSpacing) {
-      if (_panguHandler.autoApply(_contentController, _smartListHandler.updatePreviousText)) {
-        return;
-      }
-    }
-
-    _smartListHandler.updatePreviousText(_contentController.text);
-  }
-
-  void _applyPanguSpacing() {
-    _panguHandler.manualApply(_contentController, _smartListHandler.updatePreviousText);
-  }
-
   void _onCategorySelected(Category category) {
     setState(() => _selectedCategory = category);
   }
@@ -209,6 +179,26 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // 手动验证内容
+    if (_canEditContent) {
+      final minContentLength = _isPrivateMessage
+          ? (ref.read(minPmPostLengthProvider).value ?? 10)
+          : (ref.read(minFirstPostLengthProvider).value ?? 20);
+      final contentText = _contentController.text.trim();
+      if (contentText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请输入内容')),
+        );
+        return;
+      }
+      if (contentText.length < minContentLength) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('内容至少需要 $minContentLength 个字符')),
+        );
+        return;
+      }
+    }
 
     // 只有在有权限编辑元数据且不是私信时才验证分类
     if (_canEditMetadata && !_isPrivateMessage && _selectedCategory == null) {
@@ -306,17 +296,14 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
     final minTitleLength = _isPrivateMessage
         ? (ref.watch(minPmTitleLengthProvider).value ?? 2)
         : (ref.watch(minTopicTitleLengthProvider).value ?? 15);
-    final minContentLength = _isPrivateMessage
-        ? (ref.watch(minPmPostLengthProvider).value ?? 10)
-        : (ref.watch(minFirstPostLengthProvider).value ?? 20);
 
-    final showEmojiPanel = _toolbarKey.currentState?.showEmojiPanel ?? false;
+    final showEmojiPanel = _editorKey.currentState?.showEmojiPanel ?? false;
 
     return PopScope(
       canPop: !showEmojiPanel,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
         if (didPop) return;
-        _toolbarKey.currentState?.closeEmojiPanel();
+        _editorKey.currentState?.closeEmojiPanel();
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
@@ -344,9 +331,9 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
           ],
         ),
         body: _isPrivateMessage
-            ? _buildBody(theme, [], canTagTopics, tagsAsync, minTitleLength, minContentLength)
+            ? _buildBody(theme, [], canTagTopics, tagsAsync, minTitleLength)
             : categoriesAsync.when(
-                data: (categories) => _buildBody(theme, categories, canTagTopics, tagsAsync, minTitleLength, minContentLength),
+                data: (categories) => _buildBody(theme, categories, canTagTopics, tagsAsync, minTitleLength),
                 loading: () => const Center(child: LoadingSpinner()),
                 error: (err, stack) => Center(child: Text('加载分类失败: $err')),
               ),
@@ -354,7 +341,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
     );
   }
 
-  Widget _buildBody(ThemeData theme, List<Category> categories, bool canTagTopics, AsyncValue<List<String>> tagsAsync, int minTitleLength, int minContentLength) {
+  Widget _buildBody(ThemeData theme, List<Category> categories, bool canTagTopics, AsyncValue<List<String>> tagsAsync, int minTitleLength) {
     if (_isLoadingContent) {
       return const Center(child: LoadingSpinner());
     }
@@ -392,7 +379,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
               return null;
             } : null,
             onTap: () {
-              _toolbarKey.currentState?.closeEmojiPanel();
+              _editorKey.currentState?.closeEmojiPanel();
             },
           ),
 
@@ -432,7 +419,6 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
 
           const SizedBox(height: 20),
           Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-          const SizedBox(height: 20),
         ],
       );
     }
@@ -445,6 +431,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
           children: [
             buildMetadataSection(),
+            const SizedBox(height: 20),
             // 直接显示渲染后的内容
             MarkdownBody(data: _contentController.text),
           ],
@@ -453,137 +440,133 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
     }
 
     // 有内容编辑权限时，使用 PageView 支持编辑/预览切换
-    return Column(
+    return Stack(
       children: [
-        Expanded(
-          child: PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _showPreview = index == 1;
-              });
-              if (_showPreview) {
-                FocusScope.of(context).unfocus();
-                _toolbarKey.currentState?.closeEmojiPanel();
-              }
-            },
-            children: [
-              // Page 0: 编辑模式
-              Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  children: [
-                    buildMetadataSection(),
-                    // 内容编辑器
-                    MentionAutocomplete(
-                      controller: _contentController,
-                      focusNode: _contentFocusNode,
-                      dataSource: (term) => ref.read(discourseServiceProvider).searchUsers(
-                        term: term,
-                        categoryId: _selectedCategory?.id,
-                        includeGroups: !_isPrivateMessage, // 私信不允许提及群组
-                      ),
-                      child: TextFormField(
-                        controller: _contentController,
-                        focusNode: _contentFocusNode,
-                        maxLines: null,
-                        minLines: 12,
-                        decoration: InputDecoration(
-                          hintText: '正文内容 (支持 Markdown)...',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          height: 1.6,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) return '请输入内容';
-                          if (value.trim().length < minContentLength) return '内容至少需要 $minContentLength 个字符';
-                          return null;
-                        },
-                        onTap: () {
-                          _toolbarKey.currentState?.closeEmojiPanel();
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '$_contentLength 字符',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+        Column(
+          children: [
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _showPreview = index == 1;
+                  });
+                  if (_showPreview) {
+                    FocusScope.of(context).unfocus();
+                    _editorKey.currentState?.closeEmojiPanel();
+                  }
+                },
+                children: [
+                  // Page 0: 编辑模式
+                  Column(
+                    children: [
+                      // 标题 + 元数据区域
+                      Form(
+                        key: _formKey,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              buildMetadataSection(),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
 
-              // Page 1: 预览模式
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _titleController.text.isEmpty ? '（无标题）' : _titleController.text,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (!_isPrivateMessage)
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (_selectedCategory != null)
-                            CategoryTrigger(
-                              category: _selectedCategory,
-                              categories: categories,
-                              onSelected: _onCategorySelected,
+                      // 字符计数
+                      Padding(
+                        padding: const EdgeInsets.only(right: 20, top: 8),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '$_contentLength 字符',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                          PreviewTagsList(tags: _selectedTags),
-                        ],
+                          ),
+                        ),
                       ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Divider(height: 1),
-                    ),
-                    if (_contentController.text.isEmpty)
-                      Text(
-                        '（无内容）',
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                      )
-                    else
-                      MarkdownBody(data: _contentController.text),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
 
-        // 底部工具栏区域
-        Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.paddingOf(context).bottom + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: MarkdownToolbar(
-            key: _toolbarKey,
-            controller: _contentController,
-            focusNode: _contentFocusNode,
-            isPreview: _showPreview,
-            onTogglePreview: _togglePreview,
-            onApplyPangu: _applyPanguSpacing,
-            showPanguButton: true,
-            emojiPanelHeight: 350,
-          ),
+                      // 内容编辑器
+                      Expanded(
+                        child: MarkdownEditor(
+                          key: _editorKey,
+                          controller: _contentController,
+                          focusNode: _contentFocusNode,
+                          hintText: '正文内容 (支持 Markdown)...',
+                          expands: true,
+                          emojiPanelHeight: 350,
+                          onTogglePreview: _togglePreview,
+                          isPreview: _showPreview,
+                          mentionDataSource: (term) => ref.read(discourseServiceProvider).searchUsers(
+                            term: term,
+                            categoryId: _selectedCategory?.id,
+                            includeGroups: !_isPrivateMessage,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Page 1: 预览模式
+                  SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.paddingOf(context).bottom + 80),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _titleController.text.isEmpty ? '（无标题）' : _titleController.text,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (!_isPrivateMessage)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              if (_selectedCategory != null)
+                                CategoryTrigger(
+                                  category: _selectedCategory,
+                                  categories: categories,
+                                  onSelected: _onCategorySelected,
+                                ),
+                              PreviewTagsList(tags: _selectedTags),
+                            ],
+                          ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Divider(height: 1),
+                        ),
+                        if (_contentController.text.isEmpty)
+                          Text(
+                            '（无内容）',
+                            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                          )
+                        else
+                          MarkdownBody(data: _contentController.text),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+        // 预览模式下的退出预览按钮
+        if (_showPreview)
+          Positioned(
+            right: 16,
+            bottom: MediaQuery.paddingOf(context).bottom + 16,
+            child: FloatingActionButton.small(
+              onPressed: _togglePreview,
+              tooltip: '退出预览',
+              child: const Icon(Icons.edit_outlined),
+            ),
+          ),
       ],
     );
   }

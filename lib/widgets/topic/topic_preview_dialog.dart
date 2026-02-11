@@ -106,8 +106,8 @@ class TopicPreviewDialog extends ConsumerWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.tertiary,
+                      theme.colorScheme.primaryContainer,
+                      theme.colorScheme.tertiaryContainer,
                     ],
                   ),
                 ),

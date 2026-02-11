@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
-import 'package:fluxdo/widgets/markdown_editor/markdown_toolbar.dart';
+import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
 import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/draft.dart';
 
 import 'package:fluxdo/providers/discourse_providers.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
-import 'package:fluxdo/services/emoji_handler.dart';
 import 'package:fluxdo/services/draft_controller.dart';
 import 'package:fluxdo/widgets/topic/topic_filter_sheet.dart';
 import 'package:fluxdo/services/preloaded_data_service.dart';
-import 'package:fluxdo/providers/preferences_provider.dart';
-import 'package:fluxdo/widgets/mention/mention_autocomplete.dart';
 import 'package:fluxdo/widgets/topic/topic_editor_helpers.dart';
 
 class CreateTopicPage extends ConsumerStatefulWidget {
@@ -27,11 +24,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
-  final _toolbarKey = GlobalKey<MarkdownToolbarState>();
-
-  // 文本处理器
-  final _smartListHandler = SmartListHandler();
-  final _panguHandler = PanguSpacingHandler();
+  final _editorKey = GlobalKey<MarkdownEditorState>();
 
   Category? _selectedCategory;
   List<String> _selectedTags = [];
@@ -51,9 +44,6 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   void initState() {
     super.initState();
     _contentController.addListener(_updateContentLength);
-    _contentController.addListener(_handleContentTextChange);
-    // 初始化 EmojiHandler 以支持预览
-    EmojiHandler().init();
 
     // 初始化草稿控制器
     _draftController = DraftController(draftKey: Draft.newTopicKey);
@@ -239,7 +229,6 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
     _pageController.dispose();
     _contentController.removeListener(_updateContentLength);
-    _contentController.removeListener(_handleContentTextChange);
     _titleController.dispose();
     _contentController.dispose();
     _contentFocusNode.dispose();
@@ -248,26 +237,6 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
   void _updateContentLength() {
     setState(() => _contentLength = _contentController.text.length);
-  }
-
-  void _handleContentTextChange() {
-    // 智能列表续行
-    if (_smartListHandler.handleTextChange(_contentController)) {
-      return;
-    }
-
-    // 自动 Pangu 空格
-    if (ref.read(preferencesProvider).autoPanguSpacing) {
-      if (_panguHandler.autoApply(_contentController, _smartListHandler.updatePreviousText)) {
-        return;
-      }
-    }
-
-    _smartListHandler.updatePreviousText(_contentController.text);
-  }
-
-  void _applyPanguSpacing() {
-    _panguHandler.manualApply(_contentController, _smartListHandler.updatePreviousText);
   }
 
   void _onCategorySelected(Category category) {
@@ -306,6 +275,22 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // 手动验证内容
+    final minContentLength = ref.read(minFirstPostLengthProvider).value ?? 20;
+    final contentText = _contentController.text.trim();
+    if (contentText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入内容')),
+      );
+      return;
+    }
+    if (contentText.length < minContentLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('内容至少需要 $minContentLength 个字符')),
+      );
+      return;
+    }
 
     if (_selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -407,15 +392,14 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
     // 获取站点配置的最小长度
     final minTitleLength = ref.watch(minTopicTitleLengthProvider).value ?? 15;
-    final minContentLength = ref.watch(minFirstPostLengthProvider).value ?? 20;
 
-    final showEmojiPanel = _toolbarKey.currentState?.showEmojiPanel ?? false;
+    final showEmojiPanel = _editorKey.currentState?.showEmojiPanel ?? false;
 
     return PopScope(
       canPop: !showEmojiPanel,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
         if (didPop) return;
-        _toolbarKey.currentState?.closeEmojiPanel();
+        _editorKey.currentState?.closeEmojiPanel();
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
@@ -470,113 +454,89 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                       });
                       if (_showPreview) {
                         FocusScope.of(context).unfocus();
-                        _toolbarKey.currentState?.closeEmojiPanel();
+                        _editorKey.currentState?.closeEmojiPanel();
                       }
                     },
                     children: [
                       // Page 0: 编辑模式
-                      Form(
-                        key: _formKey,
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                          children: [
-                            // 标题输入
-                            TextFormField(
-                              controller: _titleController,
-                              decoration: InputDecoration(
-                                hintText: '键入一个吸引人的标题...',
-                                hintStyle: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                  fontWeight: FontWeight.normal,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                                isDense: true,
-                              ),
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.5,
-                              ),
-                              maxLines: null,
-                              maxLength: 200,
-                              buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) return '请输入标题';
-                                if (value.trim().length < minTitleLength) return '标题至少需要 $minTitleLength 个字符';
-                                return null;
-                              },
-                              onTap: () {
-                                _toolbarKey.currentState?.closeEmojiPanel();
-                              },
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // 元数据区域 (分类 + 标签)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CategoryTrigger(
-                                  category: _selectedCategory,
-                                  categories: categories,
-                                  onSelected: _onCategorySelected,
-                                ),
-                                if (canTagTopics) ...[
-                                  const SizedBox(height: 12),
-                                  tagsAsync.when(
-                                    data: (tags) => TagsArea(
-                                      selectedCategory: _selectedCategory,
-                                      selectedTags: _selectedTags,
-                                      allTags: tags,
-                                      onTagsChanged: _onTagsChanged,
+                      Column(
+                        children: [
+                          // 标题 + 元数据区域
+                          Form(
+                            key: _formKey,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 标题输入
+                                  TextFormField(
+                                    controller: _titleController,
+                                    decoration: InputDecoration(
+                                      hintText: '键入一个吸引人的标题...',
+                                      hintStyle: TextStyle(
+                                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                        fontWeight: FontWeight.normal,
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                      isDense: true,
                                     ),
-                                    loading: () => const SizedBox.shrink(),
-                                    error: (e, s) => const SizedBox.shrink(),
+                                    style: theme.textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.5,
+                                    ),
+                                    maxLines: null,
+                                    maxLength: 200,
+                                    buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                                    validator: (value) {
+                                      if (value == null || value.trim().isEmpty) return '请输入标题';
+                                      if (value.trim().length < minTitleLength) return '标题至少需要 $minTitleLength 个字符';
+                                      return null;
+                                    },
+                                    onTap: () {
+                                      _editorKey.currentState?.closeEmojiPanel();
+                                    },
                                   ),
+
+                                  const SizedBox(height: 16),
+
+                                  // 元数据区域 (分类 + 标签)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      CategoryTrigger(
+                                        category: _selectedCategory,
+                                        categories: categories,
+                                        onSelected: _onCategorySelected,
+                                      ),
+                                      if (canTagTopics) ...[
+                                        const SizedBox(height: 12),
+                                        tagsAsync.when(
+                                          data: (tags) => TagsArea(
+                                            selectedCategory: _selectedCategory,
+                                            selectedTags: _selectedTags,
+                                            allTags: tags,
+                                            onTagsChanged: _onTagsChanged,
+                                          ),
+                                          loading: () => const SizedBox.shrink(),
+                                          error: (e, s) => const SizedBox.shrink(),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 20),
+                                  Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
                                 ],
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-                            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-                            const SizedBox(height: 20),
-
-                            // 内容区域
-                            MentionAutocomplete(
-                              controller: _contentController,
-                              focusNode: _contentFocusNode,
-                              dataSource: (term) => ref.read(discourseServiceProvider).searchUsers(
-                                term: term,
-                                categoryId: _selectedCategory?.id,
-                                includeGroups: true,
-                              ),
-                              child: TextFormField(
-                                controller: _contentController,
-                                focusNode: _contentFocusNode,
-                                maxLines: null,
-                                minLines: 12,
-                                decoration: InputDecoration(
-                                  hintText: '正文内容 (支持 Markdown)...',
-                                  border: InputBorder.none,
-                                  helperText: _templateContent != null ? '已填充分类模板' : null,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  height: 1.6,
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) return '请输入内容';
-                                  if (value.trim().length < minContentLength) return '内容至少需要 $minContentLength 个字符';
-                                  return null;
-                                },
-                                onTap: () {
-                                  _toolbarKey.currentState?.closeEmojiPanel();
-                                },
                               ),
                             ),
-                            const SizedBox(height: 40),
-                            Align(
+                          ),
+
+                          // 字符计数
+                          Padding(
+                            padding: const EdgeInsets.only(right: 20, top: 8),
+                            child: Align(
                               alignment: Alignment.centerRight,
                               child: Text(
                                 '$_contentLength 字符',
@@ -585,13 +545,32 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+
+                          // 内容编辑器
+                          Expanded(
+                            child: MarkdownEditor(
+                              key: _editorKey,
+                              controller: _contentController,
+                              focusNode: _contentFocusNode,
+                              hintText: '正文内容 (支持 Markdown)...',
+                              expands: true,
+                              emojiPanelHeight: 350,
+                              onTogglePreview: _togglePreview,
+                              isPreview: _showPreview,
+                              mentionDataSource: (term) => ref.read(discourseServiceProvider).searchUsers(
+                                term: term,
+                                categoryId: _selectedCategory?.id,
+                                includeGroups: true,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
 
                       // Page 1: 预览模式
                       SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
+                        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.paddingOf(context).bottom + 80),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -633,25 +612,19 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                     ],
                   ),
                 ),
-
-                // 底部工具栏区域
-                Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.paddingOf(context).bottom + MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  child: MarkdownToolbar(
-                    key: _toolbarKey,
-                    controller: _contentController,
-                    focusNode: _contentFocusNode,
-                    isPreview: _showPreview,
-                    onTogglePreview: _togglePreview,
-                    onApplyPangu: _applyPanguSpacing,
-                    showPanguButton: true,
-                    emojiPanelHeight: 350,
-                  ),
-                ),
               ],
             ),
+            // 预览模式下的退出预览按钮
+            if (_showPreview)
+              Positioned(
+                right: 16,
+                bottom: MediaQuery.paddingOf(context).bottom + 16,
+                child: FloatingActionButton.small(
+                  onPressed: _togglePreview,
+                  tooltip: '退出预览',
+                  child: const Icon(Icons.edit_outlined),
+                ),
+              ),
             // 草稿加载遮罩
             if (_isLoadingDraft)
               Positioned.fill(

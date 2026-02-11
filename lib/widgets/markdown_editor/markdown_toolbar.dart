@@ -1,27 +1,32 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pasteboard/pasteboard.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../../services/discourse/discourse_service.dart';
-import 'emoji_picker.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
 
 /// Markdown 工具栏组件
-/// 提供格式化按钮、表情、预览切换和图片上传功能
+/// 提供格式化按钮、预览切换和图片上传功能（纯按钮行，不含面板和间距）
 class MarkdownToolbar extends StatefulWidget {
   /// 内容控制器（必需，用于文本操作）
   final TextEditingController controller;
-  
-  /// 内容焦点节点（可选，用于表情面板切换时恢复焦点）
+
+  /// 内容焦点节点（可选，用于恢复焦点）
   final FocusNode? focusNode;
-  
+
   /// 是否显示预览按钮
   final bool showPreviewButton;
-  
+
   /// 预览状态
   final bool isPreview;
-  
+
   /// 预览切换回调
   final VoidCallback? onTogglePreview;
 
@@ -30,9 +35,12 @@ class MarkdownToolbar extends StatefulWidget {
 
   /// 是否显示混排优化按钮
   final bool showPanguButton;
-  
-  /// 表情面板高度
-  final double emojiPanelHeight;
+
+  /// 表情按钮点击回调
+  final VoidCallback? onToggleEmoji;
+
+  /// 表情面板是否可见（控制表情/键盘按钮图标切换）
+  final bool isEmojiPanelVisible;
 
   const MarkdownToolbar({
     super.key,
@@ -43,55 +51,66 @@ class MarkdownToolbar extends StatefulWidget {
     this.onTogglePreview,
     this.onApplyPangu,
     this.showPanguButton = false,
-    this.emojiPanelHeight = 280.0,
+    this.onToggleEmoji,
+    this.isEmojiPanelVisible = false,
   });
 
   @override
   State<MarkdownToolbar> createState() => MarkdownToolbarState();
 }
 
-class MarkdownToolbarState extends State<MarkdownToolbar> with WidgetsBindingObserver {
+class MarkdownToolbarState extends State<MarkdownToolbar> {
   final _picker = ImagePicker();
-  
-  bool _showEmojiPanel = false;
   bool _isUploading = false;
-  bool _wasKeyboardVisible = false;
-  
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_handleRawKeyEvent);
   }
-  
+
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_handleRawKeyEvent);
     super.dispose();
   }
-  
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    // 键盘状态变化时触发重建，以便调整表情面板高度
-    final viewInsets = WidgetsBinding.instance.platformDispatcher.views.first.viewInsets;
-    final isKeyboardVisible = viewInsets.bottom > 0;
-    
-    if (isKeyboardVisible != _wasKeyboardVisible) {
-      _wasKeyboardVisible = isKeyboardVisible;
-      if (mounted) setState(() {});
+
+  /// 全局键盘事件处理，检测 Cmd+V / Ctrl+V 粘贴图片
+  bool _handleRawKeyEvent(KeyEvent event) {
+    if (widget.focusNode == null || !widget.focusNode!.hasFocus) return false;
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.keyV &&
+        !HardwareKeyboard.instance.isShiftPressed &&
+        !HardwareKeyboard.instance.isAltPressed &&
+        (HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed)) {
+      _handlePasteImage();
+      // 不返回 true：让 TextField 自行处理文本粘贴，
+      // 仅在检测到图片时通过上传流程处理
+      return false;
+    }
+    return false;
+  }
+
+  /// 处理粘贴事件：仅检测剪贴板图片，文本粘贴由 TextField 自行处理
+  Future<void> _handlePasteImage() async {
+    try {
+      final imageBytes = await Pasteboard.image;
+      if (imageBytes != null && imageBytes.isNotEmpty) {
+        // 有图片，保存到临时文件后走上传流程
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'paste_${DateTime.now().millisecondsSinceEpoch}.png';
+        final tempFile = File(p.join(tempDir.path, fileName));
+        await tempFile.writeAsBytes(imageBytes);
+
+        if (!mounted) return;
+        await uploadImageFromPath(imagePath: tempFile.path, imageName: fileName);
+      }
+    } catch (_) {
+      // 读取图片失败，忽略，文本粘贴由 TextField 自行处理
     }
   }
-  
-  /// 是否显示表情面板（供外部查询）
-  bool get showEmojiPanel => _showEmojiPanel;
-  
-  /// 关闭表情面板（供外部调用）
-  void closeEmojiPanel() {
-    if (_showEmojiPanel) {
-      setState(() => _showEmojiPanel = false);
-    }
-  }
-  
+
   /// 插入文本到光标位置
   void insertText(String text) {
     final selection = widget.controller.selection;
@@ -515,28 +534,15 @@ class MarkdownToolbarState extends State<MarkdownToolbar> with WidgetsBindingObs
     widget.focusNode?.requestFocus();
   }
 
-  void _toggleEmojiPanel() {
-    setState(() {
-      _showEmojiPanel = !_showEmojiPanel;
-      if (_showEmojiPanel) {
-        FocusScope.of(context).unfocus();
-      } else {
-        widget.focusNode?.requestFocus();
-      }
-    });
-  }
-
-  Future<void> _pickAndUploadImage() async {
+  /// 从文件路径上传图片（公开方法，供外部调用）
+  Future<void> uploadImageFromPath({required String imagePath, required String imageName}) async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-
       // 显示确认弹框
       if (!mounted) return;
       final result = await showImageUploadDialog(
         context,
-        imagePath: image.path,
-        imageName: image.name,
+        imagePath: imagePath,
+        imageName: imageName,
       );
       if (result == null) return; // 用户取消
 
@@ -557,18 +563,21 @@ class MarkdownToolbarState extends State<MarkdownToolbar> with WidgetsBindingObs
     }
   }
 
+  Future<void> _pickAndUploadImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      await uploadImageFromPath(imagePath: image.path, imageName: image.name);
+    } catch (_) {
+      // 错误已由 ErrorInterceptor 处理
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final viewInsets = MediaQuery.viewInsetsOf(context);
-    final hasKeyboard = viewInsets.bottom > 0;
-    
-    // 当键盘弹出时，使用更小的表情面板高度以避免溢出
-    // 键盘弹出时高度减半，确保表情面板仍然可见
-    final effectiveEmojiHeight = hasKeyboard 
-        ? (widget.emojiPanelHeight * 0.4).clamp(120.0, 180.0)
-        : widget.emojiPanelHeight;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -579,160 +588,138 @@ class MarkdownToolbarState extends State<MarkdownToolbar> with WidgetsBindingObs
           ),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 工具栏按钮行
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: [
-                // 表情按钮
-                IconButton(
-                  icon: FaIcon(
-                    _showEmojiPanel
-                        ? FontAwesomeIcons.keyboard
-                        : FontAwesomeIcons.faceSmile,
-                    size: 20,
-                    color: _showEmojiPanel
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: _toggleEmojiPanel,
+      child: Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              // 表情按钮
+              IconButton(
+                icon: FaIcon(
+                  widget.isEmojiPanelVisible
+                      ? FontAwesomeIcons.keyboard
+                      : FontAwesomeIcons.faceSmile,
+                  size: 20,
+                  color: widget.isEmojiPanelVisible
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
-                Container(
-                  height: 20,
-                  width: 1,
-                  color: theme.colorScheme.outlineVariant,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                ),
-                // Markdown 工具按钮 (可滚动)
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        // 标题按钮（带弹出菜单）
-                        PopupMenuButton<int>(
-                          icon: FaIcon(
-                            FontAwesomeIcons.heading,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(value: 1, child: Text('H1 - 一级标题')),
-                            const PopupMenuItem(value: 2, child: Text('H2 - 二级标题')),
-                            const PopupMenuItem(value: 3, child: Text('H3 - 三级标题')),
-                            const PopupMenuItem(value: 4, child: Text('H4 - 四级标题')),
-                            const PopupMenuItem(value: 5, child: Text('H5 - 五级标题')),
-                          ],
-                          onSelected: (level) {
-                            applyLinePrefix('${'#' * level} ');
-                          },
-                          padding: EdgeInsets.zero,
-                          iconSize: 20,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.bold,
-                          onPressed: () => wrapSelection('**', '**'),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.italic,
-                          onPressed: () => wrapSelection('*', '*'),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.strikethrough,
-                          onPressed: insertStrikethrough,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.listUl,
-                          onPressed: () => applyLinePrefix('- '),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.listOl,
-                          onPressed: () => applyLinePrefix('1. '),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.link,
-                          onPressed: () => insertLink(context),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.quoteRight,
-                          onPressed: insertQuote,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.code,
-                          onPressed: insertInlineCode,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.fileCode,
-                          onPressed: insertCodeBlock,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.image,
-                          onPressed: _isUploading ? null : _pickAndUploadImage,
-                          isLoading: _isUploading,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.tableColumns,
-                          onPressed: wrapImagesInGrid,
-                          tooltip: '图片网格',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  height: 20,
-                  width: 1,
-                  color: theme.colorScheme.outlineVariant,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                ),
-                if (widget.showPanguButton)
-                  IconButton(
-                    icon: Icon(
-                      Icons.auto_fix_high_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: widget.onApplyPangu,
-                    tooltip: '混排优化',
-                  ),
-                // 预览按钮（放到最后）
-                if (widget.showPreviewButton)
-                  IconButton(
-                    icon: Icon(
-                      widget.isPreview ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      size: 20,
-                      color: widget.isPreview ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: widget.onTogglePreview,
-                    tooltip: widget.isPreview ? '编辑' : '预览',
-                  ),
-              ],
-            ),
-          ),
-          
-          // 表情面板 (使用 ClipRect 防止动画过程中溢出)
-          ClipRect(
-            child: AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              child: SizedBox(
-                height: _showEmojiPanel ? effectiveEmojiHeight : 0,
-                child: _showEmojiPanel
-                    ? EmojiPicker(
-                        onEmojiSelected: (emoji) {
-                          insertText(':${emoji.name}:');
-                          // 保持表情面板打开，不弹出键盘
-                          FocusScope.of(context).unfocus();
-                        },
-                      )
-                    : null,
+                onPressed: widget.onToggleEmoji,
               ),
-            ),
+              Container(
+                height: 20,
+                width: 1,
+                color: theme.colorScheme.outlineVariant,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+              // Markdown 工具按钮 (可滚动)
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // 标题按钮（带弹出菜单）
+                      PopupMenuButton<int>(
+                        icon: FaIcon(
+                          FontAwesomeIcons.heading,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 1, child: Text('H1 - 一级标题')),
+                          const PopupMenuItem(value: 2, child: Text('H2 - 二级标题')),
+                          const PopupMenuItem(value: 3, child: Text('H3 - 三级标题')),
+                          const PopupMenuItem(value: 4, child: Text('H4 - 四级标题')),
+                          const PopupMenuItem(value: 5, child: Text('H5 - 五级标题')),
+                        ],
+                        onSelected: (level) {
+                          applyLinePrefix('${'#' * level} ');
+                        },
+                        padding: EdgeInsets.zero,
+                        iconSize: 20,
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.bold,
+                        onPressed: () => wrapSelection('**', '**'),
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.italic,
+                        onPressed: () => wrapSelection('*', '*'),
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.strikethrough,
+                        onPressed: insertStrikethrough,
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.listUl,
+                        onPressed: () => applyLinePrefix('- '),
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.listOl,
+                        onPressed: () => applyLinePrefix('1. '),
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.link,
+                        onPressed: () => insertLink(context),
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.quoteRight,
+                        onPressed: insertQuote,
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.code,
+                        onPressed: insertInlineCode,
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.fileCode,
+                        onPressed: insertCodeBlock,
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.image,
+                        onPressed: _isUploading ? null : _pickAndUploadImage,
+                        isLoading: _isUploading,
+                      ),
+                      _ToolbarButton(
+                        icon: FontAwesomeIcons.tableColumns,
+                        onPressed: wrapImagesInGrid,
+                        tooltip: '图片网格',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                height: 20,
+                width: 1,
+                color: theme.colorScheme.outlineVariant,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+              if (widget.showPanguButton)
+                IconButton(
+                  icon: Icon(
+                    Icons.auto_fix_high_rounded,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: widget.onApplyPangu,
+                  tooltip: '混排优化',
+                ),
+              // 预览按钮（放到最后）
+              if (widget.showPreviewButton)
+                IconButton(
+                  icon: Icon(
+                    widget.isPreview ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    size: 20,
+                    color: widget.isPreview ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: widget.onTogglePreview,
+                  tooltip: widget.isPreview ? '编辑' : '预览',
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

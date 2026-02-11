@@ -8,6 +8,7 @@ Widget? buildTable({
   required ThemeData theme,
   required dynamic element,
   List<String>? galleryImages,
+  bool screenshotMode = false,
 }) {
   // 解析 table 结构
   final rows = <List<_TableCellData>>[];
@@ -47,54 +48,67 @@ Widget? buildTable({
   // 构建 table widget
   // 用 ScanBoundary 包裹，阻止外层 overlay 扫描进入表格
   // 表格单元格内部的 DiscourseHtmlContent 有自己的 overlay 处理
-  return ScanBoundary(
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(
+  final tableWidget = Container(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    decoration: BoxDecoration(
+      border: Border.all(
+        color: theme.colorScheme.outlineVariant,
+        width: 1,
+      ),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Table(
+        defaultColumnWidth: const IntrinsicColumnWidth(),
+        border: TableBorder(
+          horizontalInside: BorderSide(
             color: theme.colorScheme.outlineVariant,
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Table(
-            defaultColumnWidth: const IntrinsicColumnWidth(),
-            border: TableBorder(
-              horizontalInside: BorderSide(
-                color: theme.colorScheme.outlineVariant,
-                width: 1,
-              ),
-              verticalInside: BorderSide(
-                color: theme.colorScheme.outlineVariant,
-                width: 1,
-              ),
-            ),
-            children: rows.asMap().entries.map((entry) {
-              final rowIndex = entry.key;
-              final row = entry.value;
-              final isFirstRow = rowIndex == 0;
-
-              return TableRow(
-                decoration: isFirstRow && row.any((c) => c.isHeader)
-                    ? BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                      )
-                    : null,
-                children: List.generate(columnCount, (colIndex) {
-                  if (colIndex < row.length) {
-                    return _buildCell(context, theme, row[colIndex], galleryImages);
-                  }
-                  return const SizedBox.shrink();
-                }),
-              );
-            }).toList(),
+          verticalInside: BorderSide(
+            color: theme.colorScheme.outlineVariant,
+            width: 1,
           ),
         ),
+        children: rows.asMap().entries.map((entry) {
+          final rowIndex = entry.key;
+          final row = entry.value;
+          final isFirstRow = rowIndex == 0;
+
+          return TableRow(
+            decoration: isFirstRow && row.any((c) => c.isHeader)
+                ? BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                  )
+                : null,
+            children: List.generate(columnCount, (colIndex) {
+              if (colIndex < row.length) {
+                return _buildCell(context, theme, row[colIndex], galleryImages, screenshotMode: screenshotMode);
+              }
+              return const SizedBox.shrink();
+            }),
+          );
+        }).toList(),
       ),
+    ),
+  );
+
+  // 截图模式下用 FittedBox 缩放，确保宽表格完整显示不被截断
+  if (screenshotMode) {
+    return ScanBoundary(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: tableWidget,
+      ),
+    );
+  }
+
+  return ScanBoundary(
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: tableWidget,
     ),
   );
 }
@@ -117,20 +131,31 @@ List<_TableCellData> _parseRow(dynamic tr, {required bool isHeader}) {
 }
 
 /// 构建单元格
-Widget _buildCell(BuildContext context, ThemeData theme, _TableCellData cellData, List<String>? galleryImages) {
+Widget _buildCell(BuildContext context, ThemeData theme, _TableCellData cellData, List<String>? galleryImages, {bool screenshotMode = false}) {
   final element = cellData.element;
   // 获取单元格的 innerHTML，使用 DiscourseHtmlContent 渲染
   final innerHtml = element.innerHtml ?? '';
+
+  final content = DiscourseHtmlContent(
+    html: innerHtml,
+    compact: true,
+    galleryImages: galleryImages,
+    screenshotMode: screenshotMode,
+  );
+
+  // 截图模式下不限制单元格宽度
+  if (screenshotMode) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: content,
+    );
+  }
 
   return Padding(
     padding: const EdgeInsets.all(8),
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 200),
-      child: DiscourseHtmlContent(
-        html: innerHtml,
-        compact: true,
-        galleryImages: galleryImages,
-      ),
+      child: content,
     ),
   );
 }

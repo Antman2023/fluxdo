@@ -17,7 +17,7 @@ class TrustLevelSkeleton extends StatelessWidget {
           SliverAppBar.large(
             title: const Text('信任要求'),
             centerTitle: false,
-            expandedHeight: 220,
+            expandedHeight: 200,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -33,16 +33,26 @@ class TrustLevelSkeleton extends StatelessWidget {
                 child: Stack(
                   children: [
                     Positioned(
+                      right: -20,
+                      top: -20,
+                      child: Icon(
+                        Icons.verified_user_outlined,
+                        size: 200,
+                        color: colorScheme.primary.withValues(alpha: 0.05),
+                      ),
+                    ),
+                    Positioned(
                       left: 20,
-                      right: 20,
-                      bottom: 24,
+                      bottom: 20,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          SkeletonBox(width: 200, height: 24),
-                          const SizedBox(height: 8),
-                          SkeletonBox(width: double.infinity, height: 16),
+                          SkeletonBox(width: 120, height: 16),
+                          const SizedBox(height: 8), 
+                          SkeletonBox(width: 180, height: 28),
+                          const SizedBox(height: 12),
+                          SkeletonBox(width: 60, height: 20, borderRadius: 20),
                         ],
                       ),
                     ),
@@ -53,25 +63,56 @@ class TrustLevelSkeleton extends StatelessWidget {
           ),
           // 内容骨架
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // 标题
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 12),
-                  child: SkeletonBox(width: 80, height: 18),
+                // 活跃程度卡片
+                _buildCardSkeleton(
+                  context, 
+                  height: 160, 
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildRingSkeleton(),
+                      _buildRingSkeleton(),
+                      _buildRingSkeleton(),
+                    ],
+                  )
                 ),
-                // 表格骨架
-                _buildTableSkeleton(context),
-                const SizedBox(height: 24),
-                // 状态列表标题
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 12),
-                  child: SkeletonBox(width: 80, height: 18),
+                const SizedBox(height: 16),
+                // 互动参与卡片
+                _buildCardSkeleton(
+                  context, 
+                  height: 300,
+                  child: Column(
+                    children: List.generate(5, (index) => _buildBarSkeleton()).toList(),
+                  )
                 ),
-                // 状态列表骨架
-                _buildStatusItemSkeleton(context),
-                _buildStatusItemSkeleton(context),
+                const SizedBox(height: 16),
+                // 合规记录卡片
+                _buildCardSkeleton(
+                  context,
+                  height: 220,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: SkeletonBox(height: 80, borderRadius: 12)),
+                          const SizedBox(width: 12),
+                          Expanded(child: SkeletonBox(height: 80, borderRadius: 12)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(child: SkeletonBox(height: 100, borderRadius: 12)),
+                          const SizedBox(width: 12),
+                          Expanded(child: SkeletonBox(height: 100, borderRadius: 12)),
+                        ],
+                      ),
+                    ],
+                  )
+                ),
               ]),
             ),
           ),
@@ -80,93 +121,55 @@ class TrustLevelSkeleton extends StatelessWidget {
     );
   }
 
-  Widget _buildTableSkeleton(BuildContext context) {
+  Widget _buildCardSkeleton(BuildContext context, {required double height, required Widget child}) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 表头
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(flex: 4, child: SkeletonBox(width: 60, height: 14)),
-                const SizedBox(width: 8),
-                Expanded(flex: 4, child: SkeletonBox(width: 60, height: 14)),
-                const SizedBox(width: 8),
-                Expanded(flex: 2, child: SkeletonBox(width: 40, height: 14)),
-              ],
-            ),
+          SkeletonBox(width: 80, height: 18),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRingSkeleton() {
+    return Column(
+      children: [
+        SkeletonCircle(size: 80),
+        const SizedBox(height: 12),
+        SkeletonBox(width: 40, height: 12),
+      ],
+    );
+  }
+
+  Widget _buildBarSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              SkeletonBox(width: 60, height: 14),
+              SkeletonBox(width: 40, height: 14),
+            ],
           ),
-          const Divider(height: 1, thickness: 1),
-          // 表格行
-          ...List.generate(6, (index) => _buildTableRowSkeleton(context, index == 5)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableRowSkeleton(BuildContext context, bool isLast) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: !isLast
-            ? Border(
-                bottom: BorderSide(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                ),
-              )
-            : null,
-      ),
-      child: Row(
-        children: [
-          Expanded(flex: 4, child: SkeletonBox(width: 80, height: 14)),
-          const SizedBox(width: 8),
-          Expanded(flex: 4, child: SkeletonBox(width: 50, height: 22, borderRadius: 6)),
-          const SizedBox(width: 8),
-          Expanded(flex: 2, child: SkeletonBox(width: 30, height: 14)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusItemSkeleton(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          SkeletonCircle(size: 20),
-          const SizedBox(width: 12),
-          Expanded(child: SkeletonBox(width: double.infinity, height: 16)),
+          const SizedBox(height: 8),
+          SkeletonBox(width: double.infinity, height: 8),
         ],
       ),
     );

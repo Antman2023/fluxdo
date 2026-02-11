@@ -52,6 +52,8 @@ class DiscourseHtmlContent extends ConsumerStatefulWidget {
   final int? topicId;
   /// 覆盖混排优化开关（null 表示使用全局设置）
   final bool? enablePanguSpacing;
+  /// 截图模式：展开代码块、表格等滚动区域，确保完整显示
+  final bool screenshotMode;
 
   const DiscourseHtmlContent({
     super.key,
@@ -68,6 +70,7 @@ class DiscourseHtmlContent extends ConsumerStatefulWidget {
     this.post,
     this.topicId,
     this.enablePanguSpacing,
+    this.screenshotMode = false,
   });
 
   @override
@@ -401,6 +404,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         mentionedUsers: widget.mentionedUsers,
         enableSelectionArea: widget.enableSelectionArea,
         enablePanguSpacing: widget.enablePanguSpacing,
+        screenshotMode: widget.screenshotMode,
       );
     }
 
@@ -434,6 +438,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         theme: theme,
         element: element,
         galleryImages: _galleryInfo.images,
+        screenshotMode: widget.screenshotMode,
       );
     }
 
@@ -485,6 +490,7 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
           context: context,
           theme: theme,
           codeElement: codeElements.first,
+          screenshotMode: widget.screenshotMode,
         );
       }
     }

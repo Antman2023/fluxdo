@@ -13,18 +13,20 @@ Widget buildCodeBlock({
   required BuildContext context,
   required ThemeData theme,
   required dynamic codeElement,
+  bool screenshotMode = false,
 }) {
   final className = codeElement.className as String;
   // 检测 mermaid 代码块
   if (className.contains('lang-mermaid')) {
-    return _MermaidWidget(codeElement: codeElement);
+    return _MermaidWidget(codeElement: codeElement, screenshotMode: screenshotMode);
   }
-  return _CodeBlockWidget(codeElement: codeElement);
+  return _CodeBlockWidget(codeElement: codeElement, screenshotMode: screenshotMode);
 }
 
 class _CodeBlockWidget extends StatefulWidget {
   final dynamic codeElement;
-  const _CodeBlockWidget({required this.codeElement});
+  final bool screenshotMode;
+  const _CodeBlockWidget({required this.codeElement, this.screenshotMode = false});
 
   @override
   State<_CodeBlockWidget> createState() => _CodeBlockWidgetState();
@@ -119,7 +121,10 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
       // 预估代码区域高度：行高(13*1.5=19.5) * 行数 + padding(24)
       const lineHeight = 13.0 * 1.5;
       const verticalPadding = 24.0; // 12 + 12
-      final estimatedHeight = (lineCount * lineHeight + verticalPadding).clamp(0.0, 400.0);
+      // 截图模式下不限制高度，使用实际高度
+      final estimatedHeight = widget.screenshotMode
+          ? lineCount * lineHeight + verticalPadding
+          : (lineCount * lineHeight + verticalPadding).clamp(0.0, 400.0);
 
       // 构建代码 TextSpan
       final codeSpan = _tokens != null
@@ -129,6 +134,82 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
               baseStyle: baseStyle,
             )
           : TextSpan(text: text, style: baseStyle);
+
+      // 代码区域容器
+      Widget buildCodeArea() {
+        // 截图模式：隐藏行号（自动换行后行号对不上），代码自动换行，不限制高度
+        if (widget.screenshotMode) {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text.rich(codeSpan, softWrap: true),
+          );
+        }
+
+        return SizedBox(
+          height: estimatedHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 固定的行号列
+              Container(
+                width: lineNumberWidth,
+                decoration: BoxDecoration(
+                  border: Border(right: BorderSide(color: borderColor)),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.02)
+                      : Colors.black.withValues(alpha: 0.02),
+                ),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                  child: SingleChildScrollView(
+                    controller: _lineNumberVController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      child: Text(
+                        List.generate(lineCount, (i) => (i + 1).toString().padLeft(padWidth)).join('\n'),
+                        style: baseStyle.copyWith(color: lineNumberColor),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // 可滚动的代码内容
+              Expanded(
+                child: RawScrollbar(
+                  controller: _vController,
+                  thumbVisibility: false,
+                  thickness: 4,
+                  radius: const Radius.circular(2),
+                  padding: const EdgeInsets.only(right: 2, top: 2, bottom: 2),
+                  thumbColor: thumbColor,
+                  child: SingleChildScrollView(
+                    controller: _vController,
+                    scrollDirection: Axis.vertical,
+                    child: RawScrollbar(
+                      controller: _hController,
+                      thumbVisibility: false,
+                      thickness: 4,
+                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 4),
+                      radius: const Radius.circular(2),
+                      thumbColor: thumbColor,
+                      child: SingleChildScrollView(
+                        controller: _hController,
+                        scrollDirection: Axis.horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: SelectableText.rich(codeSpan),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
 
       return Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -194,73 +275,8 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                   ],
                 ),
               ),
-              // 代码区域 - 使用预估高度避免加载时跳动
-              SizedBox(
-                height: estimatedHeight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 固定的行号列
-                    Container(
-                      width: lineNumberWidth,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          right: BorderSide(color: borderColor),
-                        ),
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.02)
-                            : Colors.black.withValues(alpha: 0.02),
-                      ),
-                      child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                        child: SingleChildScrollView(
-                          controller: _lineNumberVController,
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                            child: Text(
-                              List.generate(lineCount, (i) => (i + 1).toString().padLeft(padWidth)).join('\n'),
-                              style: baseStyle.copyWith(color: lineNumberColor),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    // 可滚动的代码内容
-                    Expanded(
-                      child: RawScrollbar(
-                        controller: _vController,
-                        thumbVisibility: false,
-                        thickness: 4,
-                        radius: const Radius.circular(2),
-                        padding: const EdgeInsets.only(right: 2, top: 2, bottom: 2),
-                        thumbColor: thumbColor,
-                        child: SingleChildScrollView(
-                          controller: _vController,
-                          scrollDirection: Axis.vertical,
-                          child: RawScrollbar(
-                            controller: _hController,
-                            thumbVisibility: false,
-                            thickness: 4,
-                            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 4),
-                            radius: const Radius.circular(2),
-                            thumbColor: thumbColor,
-                            child: SingleChildScrollView(
-                              controller: _hController,
-                              scrollDirection: Axis.horizontal,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: SelectableText.rich(codeSpan),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // 代码区域
+              buildCodeArea(),
             ],
           ),
         ),
@@ -283,7 +299,8 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
 /// Mermaid 图表组件 - 使用 mermaid.ink 服务端渲染
 class _MermaidWidget extends StatefulWidget {
   final dynamic codeElement;
-  const _MermaidWidget({required this.codeElement});
+  final bool screenshotMode;
+  const _MermaidWidget({required this.codeElement, this.screenshotMode = false});
 
   @override
   State<_MermaidWidget> createState() => _MermaidWidgetState();
@@ -317,7 +334,8 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
     super.didChangeDependencies();
     if (!_initialized) {
       _initialized = true;
-      if (LazyLoadScope.isLoaded(context, _cacheKey)) {
+      // 截图模式下直接加载，跳过懒加载
+      if (widget.screenshotMode || LazyLoadScope.isLoaded(context, _cacheKey)) {
         _shouldLoad = true;
         _shimmerController?.stop();
       }
@@ -440,36 +458,48 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
           ClipRRect(
             borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(8), bottomRight: Radius.circular(8)),
             child: _showCode
-                ? ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 400),
-                    child: RawScrollbar(
-                      controller: _vController,
-                      thumbVisibility: false,
-                      thickness: 4,
-                      radius: const Radius.circular(2),
-                      thumbColor: thumbColor,
-                      child: SingleChildScrollView(
-                        controller: _vController,
+                ? widget.screenshotMode
+                    // 截图模式：不限制高度，不用 ScrollView，代码自动换行
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: HighlighterService.instance.buildHighlightView(
+                          text,
+                          language: 'mermaid',
+                          isDark: isDark,
+                          backgroundColor: Colors.transparent,
+                          padding: EdgeInsets.zero,
+                        ),
+                      )
+                    : ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 400),
                         child: RawScrollbar(
-                          controller: _hController,
+                          controller: _vController,
                           thumbVisibility: false,
                           thickness: 4,
+                          radius: const Radius.circular(2),
                           thumbColor: thumbColor,
                           child: SingleChildScrollView(
-                            controller: _hController,
-                            scrollDirection: Axis.horizontal,
-                            child: HighlighterService.instance.buildHighlightView(
-                              text,
-                              language: 'mermaid',
-                              isDark: isDark,
-                              backgroundColor: Colors.transparent,
-                              padding: const EdgeInsets.all(12),
+                            controller: _vController,
+                            child: RawScrollbar(
+                              controller: _hController,
+                              thumbVisibility: false,
+                              thickness: 4,
+                              thumbColor: thumbColor,
+                              child: SingleChildScrollView(
+                                controller: _hController,
+                                scrollDirection: Axis.horizontal,
+                                child: HighlighterService.instance.buildHighlightView(
+                                  text,
+                                  language: 'mermaid',
+                                  isDark: isDark,
+                                  backgroundColor: Colors.transparent,
+                                  padding: const EdgeInsets.all(12),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  )
+                      )
                 : _shouldLoad
                     ? GestureDetector(
                         onTap: () {

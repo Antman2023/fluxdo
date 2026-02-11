@@ -29,7 +29,7 @@ Future<Post?> showReplySheet({
   final result = await showModalBottomSheet<Post?>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     backgroundColor: Colors.transparent,
     builder: (context) => ReplySheet(
       topicId: topicId,
@@ -56,7 +56,7 @@ Future<Post?> showEditSheet({
   final result = await showModalBottomSheet<Post?>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     backgroundColor: Colors.transparent,
     builder: (context) => ReplySheet(
       topicId: topicId,
@@ -416,20 +416,18 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
-    // DraggableScrollableSheet 提供了全屏拖拽能力
-    // initialChildSize = minChildSize = maxChildSize = 0.95 即为固定高度
-    return DraggableScrollableSheet(
-      initialChildSize: 0.95,
-      minChildSize: 0.95,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        // 使用 Scaffold 自动处理键盘避让 (resizeToAvoidBottomInset)
-        return Scaffold(
+    // 使用 FractionallySizedBox 固定 0.95 高度
+    // SafeArea(bottom: false)：顶部安全区域由 SafeArea 处理，
+    // 底部安全区域由 ChatBottomPanelContainer 内部管理，避免双重底部间距
+    return SafeArea(
+      bottom: false,
+      child: FractionallySizedBox(
+        heightFactor: 0.95,
+        alignment: Alignment.bottomCenter,
+        child: Scaffold(
           backgroundColor: Colors.transparent,
-          resizeToAvoidBottomInset: true,
+          resizeToAvoidBottomInset: false,
           // PopScope 用于处理表情面板开启时的返回逻辑
           body: PopScope(
             canPop: !_showEmojiPanel,
@@ -608,9 +606,6 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                     ),
                   ),
 
-                  // 底部安全区域
-                  if (!_showEmojiPanel)
-                    SizedBox(height: bottomPadding),
                 ],
               ),
             ),
@@ -627,8 +622,8 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
               ),
           ]),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

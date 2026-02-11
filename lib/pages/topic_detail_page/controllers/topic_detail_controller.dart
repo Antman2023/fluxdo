@@ -79,7 +79,6 @@ class TopicDetailController extends ChangeNotifier {
 
   // ============ 可见性相关 ============
   final ScreenTrack screenTrack;
-  final void Function(int postNumber)? onStreamIndexChanged;
 
   final Set<int> _visiblePostNumbers = {};
   final Set<int> _readPostNumbers = {};
@@ -96,7 +95,6 @@ class TopicDetailController extends ChangeNotifier {
     required this.screenTrack,
     required bool trackEnabled,
     this.onScrolled,
-    this.onStreamIndexChanged,
     int? initialPostNumber,
   })  : _trackEnabled = trackEnabled,
         _scrollState = TopicScrollState(
@@ -163,6 +161,9 @@ class TopicDetailController extends ChangeNotifier {
     if (shouldShowBackToTop != _scrollState.showBackToTop) {
       _updateScrollState(_scrollState.copyWith(showBackToTop: shouldShowBackToTop));
     }
+
+    // 滚动时触发进度更新（位置刷新在节流回调内执行）
+    _throttledUpdateScreenTrack();
   }
 
   /// 处理滚动通知，精确检测用户主动滚动
@@ -361,13 +362,12 @@ class TopicDetailController extends ChangeNotifier {
 
   // ============ 可见性方法 ============
 
-  /// 帖子可见性变化回调
-  void onPostVisibilityChanged(int postNumber, bool isVisible) {
-    if (isVisible) {
-      _visiblePostNumbers.add(postNumber);
-    } else {
-      _visiblePostNumbers.remove(postNumber);
-    }
+  /// 更新可见帖子集合（由 SliverViewObserver 驱动）
+  void updateVisiblePosts(Set<int> visiblePostNumbers) {
+    if (setEquals(_visiblePostNumbers, visiblePostNumbers)) return;
+    _visiblePostNumbers
+      ..clear()
+      ..addAll(visiblePostNumbers);
     _throttledUpdateScreenTrack();
   }
 
@@ -381,14 +381,10 @@ class TopicDetailController extends ChangeNotifier {
 
   void _throttledUpdateScreenTrack() {
     if (_screenTrackThrottleTimer?.isActive ?? false) return;
-    _screenTrackThrottleTimer = Timer(const Duration(milliseconds: 100), () {
+    _screenTrackThrottleTimer = Timer(const Duration(milliseconds: 16), () {
       if (_trackEnabled) {
         final readOnscreen = _visiblePostNumbers.intersection(_readPostNumbers);
         screenTrack.setOnscreen(_visiblePostNumbers, readOnscreen: readOnscreen);
-      }
-      if (_visiblePostNumbers.isNotEmpty) {
-        final topPostNumber = _visiblePostNumbers.reduce((a, b) => a < b ? a : b);
-        onStreamIndexChanged?.call(topPostNumber);
       }
     });
   }
