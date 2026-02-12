@@ -293,6 +293,18 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     }
   }
 
+  /// 忽略全部（新话题或未读话题）
+  Future<void> dismissAll() async {
+    final service = ref.read(discourseServiceProvider);
+    if (_sort == TopicListFilter.newTopics) {
+      await service.dismissNewTopics(categoryId: _categoryId);
+    } else if (_sort == TopicListFilter.unread) {
+      await service.dismissUnreadTopics(categoryId: _categoryId);
+    }
+    state = const AsyncValue.data([]);
+    _hasMore = false;
+  }
+
   void updateSeen(int topicId, int highestSeen) {
     final topics = state.value;
     if (topics == null) return;

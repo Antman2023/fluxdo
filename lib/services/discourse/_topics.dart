@@ -216,6 +216,37 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     }
   }
 
+  /// 忽略新话题
+  Future<void> dismissNewTopics({int? categoryId}) async {
+    final data = <String, dynamic>{
+      'dismiss_topics': true,
+      'dismiss_posts': false,
+    };
+    if (categoryId != null) {
+      data['category_id'] = categoryId;
+    }
+    await _dio.put(
+      '/topics/reset-new.json',
+      data: data,
+      options: Options(contentType: Headers.formUrlEncodedContentType),
+    );
+  }
+
+  /// 忽略未读话题
+  Future<void> dismissUnreadTopics({int? categoryId}) async {
+    final data = <String, dynamic>{
+      'filter': 'unread',
+      'operation': {'type': 'dismiss_posts'},
+    };
+    if (categoryId != null) {
+      data['category_id'] = categoryId;
+    }
+    await _dio.put(
+      '/topics/bulk.json',
+      data: data,
+    );
+  }
+
   /// 设置话题订阅级别
   Future<void> setTopicNotificationLevel(int topicId, TopicNotificationLevel level) async {
     await _dio.post(

@@ -246,8 +246,17 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
     return _listKeys.putIfAbsent(categoryId, () => GlobalKey<_TopicListState>());
   }
 
-  /// 构建排序栏右侧的订阅按钮（仅选中分类 Tab 时显示）
-  Widget? _buildTrailing(Category? category, bool isLoggedIn) {
+  /// 构建排序栏右侧的按钮
+  /// - 新/未读排序且已登录时：显示忽略按钮
+  /// - 分类 Tab 且已登录时：显示分类通知按钮
+  Widget? _buildTrailing(Category? category, bool isLoggedIn, TopicListFilter currentSort) {
+    // 新/未读排序时显示忽略按钮
+    if (isLoggedIn && (currentSort == TopicListFilter.newTopics || currentSort == TopicListFilter.unread)) {
+      return _DismissButton(
+        onPressed: () => _showDismissConfirmDialog(currentSort),
+      );
+    }
+
     if (category == null || !isLoggedIn) return null;
     // 优先使用本地覆盖值，否则取服务端返回值
     final effectiveLevel = _notificationLevelOverrides[category.id]
@@ -276,6 +285,45 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
         }
       },
     );
+  }
+
+  void _showDismissConfirmDialog(TopicListFilter currentSort) {
+    final label = currentSort == TopicListFilter.newTopics ? '新话题' : '未读话题';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('忽略确认'),
+        content: Text('确定要忽略全部$label吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _doDismiss();
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _doDismiss() async {
+    final currentSort = ref.read(topicSortProvider);
+    final categoryId = _currentCategoryId();
+    final providerKey = (currentSort, categoryId);
+    try {
+      await ref.read(topicListProvider(providerKey).notifier).dismissAll();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('操作失败：$e')),
+        );
+      }
+    }
   }
 
   @override
@@ -347,7 +395,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
                 MaterialPageRoute(builder: (_) => const SearchPage()),
               ),
               onDebugTopicId: () => _showTopicIdDialog(context),
-              trailing: _buildTrailing(currentCategory, isLoggedIn),
+              trailing: _buildTrailing(currentCategory, isLoggedIn, currentSort),
             ),
           ),
         ],
@@ -842,6 +890,49 @@ class _TopicListState extends ConsumerState<_TopicList>
                       ],
                     ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 忽略按钮（紧凑 chip 样式，参考 CategoryNotificationButton）
+class _DismissButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _DismissButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+    final fgColor = theme.colorScheme.primary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check, size: 14, color: fgColor),
+              const SizedBox(width: 4),
+              Text(
+                '忽略',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: fgColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),
