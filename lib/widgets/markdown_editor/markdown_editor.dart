@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:chat_bottom_container/chat_bottom_container.dart';
@@ -5,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 
 import '../../providers/preferences_provider.dart';
 import '../../services/emoji_handler.dart';
@@ -417,6 +421,97 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     _isApplyingPangu = false;
   }
 
+  /// 自定义粘贴回调：优先粘贴图片，无图片时回退文本粘贴
+  void _handleCustomPaste(EditableTextState editableTextState) async {
+    editableTextState.hideToolbar();
+
+    final hasImage = await MarkdownToolbarState.clipboardHasImage();
+    if (hasImage) {
+      final clipboard = SystemClipboard.instance;
+      if (clipboard != null) {
+        final reader = await clipboard.read();
+        final result = await MarkdownToolbarState.readImageFromReader(reader);
+        if (result != null) {
+          final (bytes, ext) = result;
+          final fileName = 'paste_${DateTime.now().millisecondsSinceEpoch}.$ext';
+          _toolbarKey.currentState?.uploadImageFromBytes(
+            bytes: bytes,
+            fileName: fileName,
+          );
+          return;
+        }
+      }
+    }
+    // 无图片，回退到默认文本粘贴
+    editableTextState.pasteText(SelectionChangedCause.toolbar);
+  }
+
+  /// 自定义上下文菜单：替换粘贴按钮以支持图片粘贴
+  Widget _buildContextMenu(BuildContext context, EditableTextState editableTextState) {
+    final items = editableTextState.contextMenuButtonItems.toList();
+
+    // 找到粘贴按钮并替换
+    final pasteIndex = items.indexWhere(
+      (item) => item.type == ContextMenuButtonType.paste,
+    );
+    if (pasteIndex != -1) {
+      final originalPaste = items[pasteIndex];
+      items[pasteIndex] = ContextMenuButtonItem(
+        label: originalPaste.label,
+        type: ContextMenuButtonType.paste,
+        onPressed: () => _handleCustomPaste(editableTextState),
+      );
+    }
+
+    // 默认列表无粘贴按钮（剪贴板只有图片时），异步检查并补充
+    if (pasteIndex == -1) {
+      return FutureBuilder<bool>(
+        future: MarkdownToolbarState.clipboardHasImage(),
+        builder: (context, snapshot) {
+          final hasImage = snapshot.data ?? false;
+          final finalItems = hasImage
+              ? [
+                  ...items,
+                  ContextMenuButtonItem(
+                    label: '粘贴',
+                    type: ContextMenuButtonType.paste,
+                    onPressed: () => _handleCustomPaste(editableTextState),
+                  ),
+                ]
+              : items;
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: editableTextState.contextMenuAnchors,
+            buttonItems: finalItems,
+          );
+        },
+      );
+    }
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: items,
+    );
+  }
+
+  /// 处理 Android 输入法直接粘贴的图片内容
+  Future<void> _handleContentInserted(KeyboardInsertedContent content) async {
+    if (!content.hasData) return;
+    final data = content.data;
+    if (data == null || data.isEmpty) return;
+
+    final ext = content.mimeType.split('/').last;
+    final fileName = 'ime_paste_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final tempDir = await getTemporaryDirectory();
+    final tempFile = File(p.join(tempDir.path, fileName));
+    await tempFile.writeAsBytes(data);
+
+    if (!mounted) return;
+    _toolbarKey.currentState?.uploadImageFromPath(
+      imagePath: tempFile.path,
+      imageName: fileName,
+    );
+  }
+
   /// 构建文本编辑器（可选包含 @提及自动补全）
   Widget _buildTextEditor() {
     final textField = TextField(
@@ -430,6 +525,16 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
       expands: widget.expands,
       textAlignVertical: TextAlignVertical.top,
       keyboardType: TextInputType.multiline,
+      contextMenuBuilder: _buildContextMenu,
+      contentInsertionConfiguration: ContentInsertionConfiguration(
+        allowedMimeTypes: const [
+          'image/png',
+          'image/jpeg',
+          'image/gif',
+          'image/webp',
+        ],
+        onContentInserted: _handleContentInserted,
+      ),
       decoration: InputDecoration(
         hintText: widget.hintText,
         border: InputBorder.none,

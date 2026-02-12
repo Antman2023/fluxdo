@@ -38,7 +38,7 @@ dependencies:
   visibility_detector: ^0.4.0+2
   markdown: ^7.2.2
   image_picker: ^1.2.1
-  pasteboard: ^0.4.0
+  super_clipboard: ^0.9.1
   gal: ^2.3.2
   pangutext:
     path: packages/pangutext
@@ -69,6 +69,11 @@ dependencies:
   chewie: any
   video_player: any
   ffi: any
+dependency_overrides:
+  # super_clipboard 0.9.1 要求 device_info_plus <12.0.0，
+  # 但实际 12.x 接口兼容，强制使用项目版本
+  device_info_plus: ^12.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

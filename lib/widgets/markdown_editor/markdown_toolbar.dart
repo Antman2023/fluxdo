@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:pasteboard/pasteboard.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -93,22 +94,89 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     return false;
   }
 
+  /// 支持的图片格式
+  static const _imageFormats = [
+    Formats.png,
+    Formats.jpeg,
+    Formats.gif,
+    Formats.webp,
+  ];
+
+  /// 从 DataReader 读取图片字节（支持 PNG/JPEG/GIF/WebP）
+  static Future<(Uint8List, String)?> readImageFromReader(DataReader reader) async {
+    for (final format in _imageFormats) {
+      if (reader.canProvide(format)) {
+        final completer = Completer<Uint8List?>();
+        reader.getFile(format, (file) async {
+          final stream = file.getStream();
+          final chunks = <int>[];
+          await for (final chunk in stream) {
+            chunks.addAll(chunk);
+          }
+          completer.complete(Uint8List.fromList(chunks));
+        }, onError: (error) {
+          completer.complete(null);
+        });
+        final bytes = await completer.future;
+        if (bytes != null && bytes.isNotEmpty) {
+          final ext = format == Formats.png
+              ? 'png'
+              : format == Formats.jpeg
+                  ? 'jpg'
+                  : format == Formats.gif
+                      ? 'gif'
+                      : 'webp';
+          return (bytes, ext);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// 快速检查剪贴板是否有图片
+  static Future<bool> clipboardHasImage() async {
+    final clipboard = SystemClipboard.instance;
+    if (clipboard == null) return false;
+    final reader = await clipboard.read();
+    for (final format in _imageFormats) {
+      if (reader.canProvide(format)) return true;
+    }
+    return false;
+  }
+
   /// 处理粘贴事件：仅检测剪贴板图片，文本粘贴由 TextField 自行处理
   Future<void> _handlePasteImage() async {
     try {
-      final imageBytes = await Pasteboard.image;
-      if (imageBytes != null && imageBytes.isNotEmpty) {
-        // 有图片，保存到临时文件后走上传流程
+      final clipboard = SystemClipboard.instance;
+      if (clipboard == null) return;
+      final reader = await clipboard.read();
+      final result = await readImageFromReader(reader);
+      if (result != null) {
+        final (bytes, ext) = result;
         final tempDir = await getTemporaryDirectory();
-        final fileName = 'paste_${DateTime.now().millisecondsSinceEpoch}.png';
+        final fileName = 'paste_${DateTime.now().millisecondsSinceEpoch}.$ext';
         final tempFile = File(p.join(tempDir.path, fileName));
-        await tempFile.writeAsBytes(imageBytes);
+        await tempFile.writeAsBytes(bytes);
 
         if (!mounted) return;
         await uploadImageFromPath(imagePath: tempFile.path, imageName: fileName);
       }
     } catch (_) {
       // 读取图片失败，忽略，文本粘贴由 TextField 自行处理
+    }
+  }
+
+  /// 从字节数据上传图片（供 markdown_editor.dart 调用）
+  Future<void> uploadImageFromBytes({required Uint8List bytes, required String fileName}) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(p.join(tempDir.path, fileName));
+      await tempFile.writeAsBytes(bytes);
+
+      if (!mounted) return;
+      await uploadImageFromPath(imagePath: tempFile.path, imageName: fileName);
+    } catch (_) {
+      // 错误已由 ErrorInterceptor 处理
     }
   }
 
