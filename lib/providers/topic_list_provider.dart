@@ -4,9 +4,9 @@ import '../models/topic.dart';
 import '../services/preloaded_data_service.dart';
 import '../services/discourse/discourse_service.dart';
 import '../utils/pagination_helper.dart';
-import '../widgets/topic/topic_filter_sheet.dart';
 import 'core_providers.dart';
 import 'category_provider.dart';
+import 'topic_sort_provider.dart';
 
 enum TopicListFilter {
   latest,
@@ -35,6 +35,26 @@ extension TopicListFilterX on TopicListFilter {
   }
 }
 
+/// 话题筛选条件（内部使用）
+class TopicFilterParams {
+  final int? categoryId;
+  final String? categorySlug;
+  final String? categoryName;
+  final String? parentCategorySlug;
+  final List<String> tags;
+
+  const TopicFilterParams({
+    this.categoryId,
+    this.categorySlug,
+    this.categoryName,
+    this.parentCategorySlug,
+    this.tags = const [],
+  });
+
+  bool get isEmpty => categoryId == null && tags.isEmpty;
+  bool get isNotEmpty => !isEmpty;
+}
+
 /// 话题列表 Notifier (支持分页、静默刷新和筛选)
 class TopicListNotifier extends AsyncNotifier<List<Topic>> {
   TopicListNotifier(this.arg);
@@ -55,8 +75,8 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
 
   @override
   Future<List<Topic>> build() async {
-    // 监听标签变化（分类由 arg 提供，不监听 topicFilterProvider 的分类）
-    final tags = ref.watch(topicFilterProvider.select((f) => f.tags));
+    // 监听当前 tab 的标签变化
+    final tags = ref.watch(tabTagsProvider(_categoryId));
     final filter = _buildFilterParams(tags);
 
     _page = 0;
@@ -158,7 +178,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
 
   /// 获取当前筛选参数（供非 build 方法使用）
   TopicFilterParams _currentFilterParams() {
-    return _buildFilterParams(ref.read(topicFilterProvider).tags);
+    return _buildFilterParams(ref.read(tabTagsProvider(_categoryId)));
   }
 
   /// 刷新列表

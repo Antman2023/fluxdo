@@ -227,9 +227,9 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
     // 构建 Tab 标签
     final tabs = <Widget>[];
     if (hasRecent) {
-      tabs.add(const Tab(text: '常用'));
+      tabs.add(const Tab(height: 36, text: '常用'));
     }
-    tabs.addAll(groupKeys.map((group) => Tab(text: _formatGroupName(group))));
+    tabs.addAll(groupKeys.map((group) => Tab(height: 36, text: _formatGroupName(group))));
     
     // 构建 TabBarView 内容
     final tabViews = <Widget>[];
@@ -289,7 +289,8 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
                 tabAlignment: TabAlignment.start,
                 tabs: tabs,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-                dividerColor: Colors.transparent, // 移除 TabBar 底部的默认分割线
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
               ),
             ),
           ],

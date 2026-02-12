@@ -32,50 +32,59 @@ class _FadingEdgeScrollViewState extends State<FadingEdgeScrollView> {
   bool _showLeftFade = false;
   bool _showRightFade = true;
 
+  void _updateFadeState(ScrollMetrics metrics) {
+    final newShowLeft = metrics.pixels > 1;
+    final newShowRight = metrics.pixels < metrics.maxScrollExtent - 1;
+    if (newShowLeft != _showLeftFade || newShowRight != _showRightFade) {
+      setState(() {
+        _showLeftFade = newShowLeft;
+        _showRightFade = newShowRight;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final showLeft = widget.fadeLeft && _showLeftFade;
     final showRight = widget.fadeRight && _showRightFade;
 
-    return NotificationListener<ScrollNotification>(
+    return NotificationListener<ScrollMetricsNotification>(
       onNotification: (notification) {
-        final metrics = notification.metrics;
-        final newShowLeft = metrics.pixels > 1;
-        final newShowRight = metrics.pixels < metrics.maxScrollExtent - 1;
-        if (newShowLeft != _showLeftFade || newShowRight != _showRightFade) {
-          setState(() {
-            _showLeftFade = newShowLeft;
-            _showRightFade = newShowRight;
-          });
-        }
+        _updateFadeState(notification.metrics);
         return false;
       },
-      child: ShaderMask(
-        shaderCallback: (Rect bounds) {
-          if (!showLeft && !showRight) {
-            return const LinearGradient(
-              colors: [Colors.white, Colors.white],
-            ).createShader(bounds);
-          }
-          return LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              if (showLeft) Colors.white.withValues(alpha: 0),
-              Colors.white,
-              Colors.white,
-              if (showRight) Colors.white.withValues(alpha: 0),
-            ],
-            stops: [
-              if (showLeft) 0.0,
-              showLeft ? widget.fadeExtent : 0.0,
-              showRight ? 1.0 - widget.fadeExtent : 1.0,
-              if (showRight) 1.0,
-            ],
-          ).createShader(bounds);
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          _updateFadeState(notification.metrics);
+          return false;
         },
-        blendMode: BlendMode.dstIn,
-        child: widget.child,
+        child: ShaderMask(
+          shaderCallback: (Rect bounds) {
+            if (!showLeft && !showRight) {
+              return const LinearGradient(
+                colors: [Colors.white, Colors.white],
+              ).createShader(bounds);
+            }
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                if (showLeft) Colors.white.withValues(alpha: 0),
+                Colors.white,
+                Colors.white,
+                if (showRight) Colors.white.withValues(alpha: 0),
+              ],
+              stops: [
+                if (showLeft) 0.0,
+                showLeft ? widget.fadeExtent : 0.0,
+                showRight ? 1.0 - widget.fadeExtent : 1.0,
+                if (showRight) 1.0,
+              ],
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.dstIn,
+          child: widget.child,
+        ),
       ),
     );
   }

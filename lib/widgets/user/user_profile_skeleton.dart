@@ -25,7 +25,7 @@ class UserProfileSkeleton extends StatelessWidget {
               surfaceTintColor: Colors.transparent,
               iconTheme: const IconThemeData(color: Colors.white),
               bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(48),
+                preferredSize: const Size.fromHeight(36),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,
@@ -56,7 +56,7 @@ class UserProfileSkeleton extends StatelessWidget {
 
   Widget _buildTabBarSkeleton(BuildContext context) {
     return SizedBox(
-      height: 48,
+      height: 36,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: List.generate(
@@ -65,7 +65,7 @@ class UserProfileSkeleton extends StatelessWidget {
             // 不同宽度模拟真实 Tab 文字长度
             final widths = [32.0, 32.0, 32.0, 24.0, 32.0];
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: SkeletonBox(
                 width: widths[index],
                 height: 20,
@@ -90,7 +90,7 @@ class UserProfileSkeleton extends StatelessWidget {
         Positioned(
           left: 20,
           right: 20,
-          bottom: 48 + 24, // TabBar 高度 + 间距
+          bottom: 36 + 24, // TabBar 高度 + 间距
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

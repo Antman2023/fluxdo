@@ -58,19 +58,21 @@ class DiscourseVideoPlayer extends StatefulWidget {
 }
 
 class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
-    with WindowListener {
+    with WidgetsBindingObserver, WindowListener {
   lib.ChewieController? _controller;
   dynamic _error;
   lib.VideoPlayerController? _vpc;
   bool _didLockLayout = false;
 
-  /// 桌面平台退出全屏时，标记等待窗口动画完成后再释放 LayoutLock
+  /// 退出全屏时，标记等待屏幕尺寸恢复后再释放 LayoutLock。
+  /// 移动端：等 chewie 恢复屏幕方向后尺寸变化回调触发；
+  /// 桌面端：等 onWindowLeaveFullScreen 回调触发。
   bool _pendingLockRelease = false;
 
   static final bool _isDesktop =
       Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
-  /// 桌面全屏期间缓存控制器，防止窗口大小变化导致 widget 重建时
+  /// 全屏期间缓存控制器，防止窗口/屏幕尺寸变化导致 widget 重建时
   /// 销毁 chewie 全屏路由正在使用的控制器。
   static final Map<String,
           ({lib.VideoPlayerController vpc, lib.ChewieController cc})>
@@ -82,6 +84,7 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (_isDesktop) {
       windowManager.addListener(this);
     }
@@ -90,23 +93,22 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_isDesktop) {
       windowManager.removeListener(this);
     }
     _controller?.removeListener(_onControllerChanged);
-    // 释放 LayoutLock（含等待窗口动画完成的延迟释放）
+    // 释放 LayoutLock（含等待恢复的延迟释放）
     if (_didLockLayout || _pendingLockRelease) {
       LayoutLock.release();
       _didLockLayout = false;
       _pendingLockRelease = false;
     }
-    // 桌面全屏期间，控制器仍被全屏路由使用，跳过销毁
-    if (_isDesktop) {
-      final cached = _fullscreenCache[widget.url];
-      if (cached != null && cached.vpc == _vpc) {
-        super.dispose();
-        return;
-      }
+    // 全屏期间，控制器仍被全屏路由使用，跳过销毁
+    final cached = _fullscreenCache[widget.url];
+    if (cached != null && cached.vpc == _vpc) {
+      super.dispose();
+      return;
     }
     _vpc?.dispose();
     _controller?.dispose();
@@ -191,8 +193,23 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
   }
 
   @override
+  void didChangeMetrics() {
+    // 移动端退出全屏后，chewie 会恢复屏幕方向，此时屏幕尺寸变化
+    // 触发此回调，可以安全释放 LayoutLock
+    if (_pendingLockRelease && !_isDesktop) {
+      _pendingLockRelease = false;
+      // 延迟一帧确保 chewie 的全屏路由 pop 动画完成
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_didLockLayout) {
+          LayoutLock.release();
+        }
+      });
+    }
+  }
+
+  @override
   void onWindowLeaveFullScreen() {
-    // 窗口退出全屏动画完成，现在可以安全释放 LayoutLock
+    // 桌面端：窗口退出全屏动画完成，安全释放 LayoutLock
     if (_pendingLockRelease) {
       _pendingLockRelease = false;
       LayoutLock.release();
@@ -206,11 +223,11 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
     if (isFullScreen && !_didLockLayout) {
       _didLockLayout = true;
       LayoutLock.acquire();
+      // 缓存控制器，防止屏幕尺寸变化导致 widget 重建时销毁它们
+      if (_vpc != null && _controller != null) {
+        _fullscreenCache[widget.url] = (vpc: _vpc!, cc: _controller!);
+      }
       if (_isDesktop) {
-        // 缓存控制器，防止窗口大小变化导致 widget 重建时销毁它们
-        if (_vpc != null && _controller != null) {
-          _fullscreenCache[widget.url] = (vpc: _vpc!, cc: _controller!);
-        }
         // 延迟到下一帧，确保 chewie 全屏路由已推入后再触发窗口变化
         WidgetsBinding.instance.addPostFrameCallback((_) {
           windowManager.setFullScreen(true);
@@ -218,18 +235,17 @@ class _DiscourseVideoPlayerState extends State<DiscourseVideoPlayer>
       }
     } else if (!isFullScreen && _didLockLayout) {
       _didLockLayout = false;
+      // 退出全屏，清除缓存
+      _fullscreenCache.remove(widget.url);
+      // 不立即释放 LayoutLock，等屏幕尺寸恢复后再释放，
+      // 防止恢复期间触发布局切换导致控制器被销毁。
+      // 移动端：didChangeMetrics 回调中释放
+      // 桌面端：onWindowLeaveFullScreen 回调中释放
+      _pendingLockRelease = true;
       if (_isDesktop) {
-        // 退出全屏，清除缓存，控制器归还当前 State 管理
-        _fullscreenCache.remove(widget.url);
-        // 不立即释放 LayoutLock，等窗口退出全屏动画完成后
-        // 在 onWindowLeaveFullScreen 中释放，防止动画期间
-        // 窗口 resize 触发 AdaptiveScaffold 布局切换
-        _pendingLockRelease = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           windowManager.setFullScreen(false);
         });
-      } else {
-        LayoutLock.release();
       }
     }
   }

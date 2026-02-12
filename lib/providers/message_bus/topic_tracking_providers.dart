@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/message_bus_service.dart';
 import '../../services/local_notification_service.dart';
-import '../../widgets/topic/topic_filter_sheet.dart';
 import '../discourse_providers.dart';
 import 'message_bus_service_provider.dart';
 import 'notification_providers.dart';
@@ -236,8 +235,6 @@ class LatestChannelNotifier extends Notifier<TopicListIncomingState> {
   @override
   TopicListIncomingState build() {
     final messageBus = ref.watch(messageBusServiceProvider);
-    // 仅监听标签筛选变化（分类由各 tab 独立查询，不需要全局监听）
-    ref.watch(topicFilterProvider.select((f) => f.tags));
     const channel = '/latest';
 
     void onMessage(MessageBusMessage message) {
@@ -250,24 +247,6 @@ class LatestChannelNotifier extends Notifier<TopicListIncomingState> {
       // 提取话题分类 ID（用于按 tab 隔离）
       final payload = data['payload'] as Map<String, dynamic>?;
       final topicCategoryId = payload?['category_id'] as int? ?? data['category_id'] as int?;
-
-      // 检查全局标签筛选（标签筛选仍然是全局的）
-      final tags = ref.read(topicFilterProvider).tags;
-      if (tags.isNotEmpty) {
-        final topicTags = (payload?['tags'] ?? data['tags']) as List?;
-        final topicTagStrings = topicTags?.map((t) {
-          if (t is Map<String, dynamic>) {
-            return t['name'] as String? ?? '';
-          }
-          return t.toString();
-        }).toList() ?? [];
-
-        final hasMatchingTag = tags.any((t) => topicTagStrings.contains(t));
-        if (!hasMatchingTag) {
-          debugPrint('[LatestChannel] 标签不匹配，跳过: topic=$topicId');
-          return;
-        }
-      }
 
       debugPrint('[LatestChannel] 收到新话题: $topicId (category=$topicCategoryId)');
 

@@ -39,6 +39,7 @@ class UserProfilePage extends ConsumerStatefulWidget {
 class _UserProfilePageState extends ConsumerState<UserProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ScrollController _scrollController = ScrollController();
   User? _user;
   UserSummary? _summary;
   bool _isLoading = true;
@@ -80,6 +81,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   @override
   void dispose() {
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -488,10 +490,11 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     }
 
     // 计算 pinned header 高度
-    final double pinnedHeaderHeight = kToolbarHeight + MediaQuery.of(context).padding.top + 48; // 48 是 TabBar 高度
+    final double pinnedHeaderHeight = kToolbarHeight + MediaQuery.of(context).padding.top + 36; // 36 是 TabBar 高度
 
     return Scaffold(
       body: ExtendedNestedScrollView(
+        controller: _scrollController,
         pinnedHeaderSliverHeightBuilder: () => pinnedHeaderHeight,
         onlyOneScrollInBody: true,
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -575,27 +578,30 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       ],
       // Bottom 参数承载 TabBar，并应用圆角背景，这样它会“浮”在 FlexibleSpace 背景图之上
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
+        preferredSize: const Size.fromHeight(36),
         child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
           clipBehavior: Clip.antiAlias,
-          child: TabBar(
+          child: Material(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: TabBar(
             controller: _tabController,
             labelColor: theme.colorScheme.primary,
             unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
             indicatorColor: theme.colorScheme.primary,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
             indicatorSize: TabBarIndicatorSize.label,
-            dividerColor: Colors.transparent, // 移除 TabBar 底部分割线
+            dividerColor: Colors.transparent,
             tabs: const [
-              Tab(text: '全部'),
-              Tab(text: '话题'),
-              Tab(text: '回复'),
-              Tab(text: '赞'),
-              Tab(text: '回应'),
+              Tab(height: 36, text: '全部'),
+              Tab(height: 36, text: '话题'),
+              Tab(height: 36, text: '回复'),
+              Tab(height: 36, text: '赞'),
+              Tab(height: 36, text: '回应'),
             ],
+          ),
           ),
         ),
       ),
@@ -648,7 +654,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               Positioned(
                 left: 20,
                 right: 20,
-                bottom: 48 + 24, // TabBar 高度 + 间距
+                bottom: 36 + 24, // TabBar 高度 + 间距
                 child: Opacity(
                   opacity: contentOpacity,
                   child: Column(
@@ -902,14 +908,23 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                 ),
               ),
 
-              // ===== 层 3: 收起时的标题栏内容 - 收起时显示 =====
+              // ===== 层 3: 收起时的标题栏内容 - 收起时显示，点击展开 =====
               Positioned(
                 left: 60, // 增加间距，避免靠近返回按钮
                 right: 48,
-                bottom: 14 + 48, // 调整位置适应 TabBar (48是TabBar高度)
-                child: Opacity(
-                  opacity: titleOpacity,
-                  child: Row(
+                bottom: 14 + 36, // 调整位置适应 TabBar (36是TabBar高度)
+                child: GestureDetector(
+                  onTap: titleOpacity > 0.5 ? () {
+                    _scrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                    );
+                  } : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Opacity(
+                    opacity: titleOpacity,
+                    child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // 头像 radius=16，flair 大小 14，偏移 right=-3, bottom=-1
@@ -945,6 +960,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                       ),
                     ],
                   ),
+                ),
                 ),
               ),
 

@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import '../models/topic.dart';
 import '../models/category.dart';
 import '../providers/discourse_providers.dart';
@@ -15,7 +15,6 @@ import 'webview_login_page.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'search_page.dart';
 import '../widgets/common/notification_icon_button.dart';
-import '../widgets/topic/topic_filter_sheet.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/topic/sort_and_tags_bar.dart';
 import '../widgets/topic/sort_dropdown.dart';
@@ -43,6 +42,14 @@ final scrollToTopProvider = StateNotifierProvider<ScrollToTopNotifier, int>((ref
 /// 顶栏/底栏可见性进度（0.0 = 完全隐藏, 1.0 = 完全显示）
 final barVisibilityProvider = StateProvider<double>((ref) => 1.0);
 
+/// Header 区域常量
+const _searchBarHeight = 56.0;
+const _tabRowHeight = 36.0;
+const _sortBarHeight = 44.0;
+const _collapsibleHeight = _searchBarHeight + _sortBarHeight; // 100
+
+// ─── TopicsPage ───
+
 /// 帖子列表页面 - 分类 Tab + 排序下拉 + 标签 Chips
 class TopicsPage extends ConsumerStatefulWidget {
   const TopicsPage({super.key});
@@ -56,9 +63,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   int _tabLength = 1; // 初始只有"全部"
   int _currentTabIndex = 0;
   final Map<int?, GlobalKey<_TopicListState>> _listKeys = {};
-
   /// 本地通知级别覆盖（categoryId -> level），用于设置后立即回显
   final Map<int, int> _notificationLevelOverrides = {};
+
+  final ScrollController _outerScrollController = ScrollController();
 
   @override
   void initState() {
@@ -71,6 +79,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
 
   @override
   void dispose() {
+    _outerScrollController.dispose();
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
@@ -79,9 +88,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   void _handleTabChange() {
     if (_tabController.indexIsChanging) return;
     if (_currentTabIndex == _tabController.index) return;
-    _currentTabIndex = _tabController.index;
-    // 切换 tab 时重置栏可见性
-    ref.read(barVisibilityProvider.notifier).state = 1.0;
+    setState(() {
+      _currentTabIndex = _tabController.index;
+    });
   }
 
   /// 检测 pinnedCategories 变化，重建 TabController
@@ -102,7 +111,6 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
     _currentTabIndex = oldIndex < _tabLength ? oldIndex : 0;
     _tabController.index = _currentTabIndex;
   }
-
 
   Future<void> _goToLogin() async {
     final result = await Navigator.of(context).push<bool>(
@@ -189,7 +197,8 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   }
 
   Future<void> _openTagSelection() async {
-    final filter = ref.read(topicFilterProvider);
+    final categoryId = _currentCategoryId();
+    final currentTags = ref.read(tabTagsProvider(categoryId));
     final tagsAsync = ref.read(tagsProvider);
     final availableTags = tagsAsync.when(
       data: (tags) => tags,
@@ -202,14 +211,15 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => TagSelectionSheet(
+        categoryId: categoryId,
         availableTags: availableTags,
-        selectedTags: filter.tags,
+        selectedTags: currentTags,
         maxTags: 99,
       ),
     );
 
     if (result != null && mounted) {
-      ref.read(topicFilterProvider.notifier).setTags(result);
+      ref.read(tabTagsProvider(categoryId).notifier).state = result;
     }
   }
 
@@ -272,11 +282,11 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
     final isLoggedIn = ref.watch(currentUserProvider).value != null;
-    final barVisibility = ref.watch(barVisibilityProvider);
     final pinnedIds = ref.watch(pinnedCategoriesProvider);
     final categoryMapAsync = ref.watch(categoryMapProvider);
     final currentSort = ref.watch(topicSortProvider);
-    final filter = ref.watch(topicFilterProvider);
+    final currentCategoryId = _currentCategoryId();
+    final currentTags = ref.watch(tabTagsProvider(currentCategoryId));
 
     _syncTabsIfNeeded(pinnedIds);
 
@@ -284,186 +294,93 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
 
     // 监听滚动到顶部的通知
     ref.listen(scrollToTopProvider, (previous, next) {
+      _outerScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
       _getListKey(_currentCategoryId()).currentState?.scrollToTop();
     });
 
-    return Column(
-      children: [
-        // 状态栏区域（始终存在）
-        Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          height: topPadding,
-        ),
-        // 搜索栏：跟随滚动向上滑出
-        ClipRect(
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            heightFactor: barVisibility,
-            child: Opacity(
-              opacity: barVisibility,
-              child: Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                height: 56,
-                padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 8),
-                child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SearchPage()),
-                      ),
-                      child: Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.search,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '搜索话题...',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  fontSize: 14,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (isLoggedIn) const NotificationIconButton(),
-                  if (kDebugMode)
-                    IconButton(
-                      icon: const Icon(Icons.bug_report),
-                      onPressed: () => _showTopicIdDialog(context),
-                      tooltip: '调试：跳转话题',
-                    ),
-                ],
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.axis == Axis.vertical) {
+          _snapOuterScroll();
+        }
+        return false;
+      },
+      child: ExtendedNestedScrollView(
+        controller: _outerScrollController,
+        floatHeaderSlivers: true,
+        pinnedHeaderSliverHeightBuilder: () => topPadding + _tabRowHeight,
+        onlyOneScrollInBody: true,
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverPersistentHeader(
+            pinned: true,
+            floating: true,
+            delegate: _TopicsHeaderDelegate(
+              statusBarHeight: topPadding,
+              tabController: _tabController,
+              pinnedIds: pinnedIds,
+              categoryMap: categoryMapAsync.value ?? {},
+              isLoggedIn: isLoggedIn,
+              currentSort: currentSort,
+              currentTags: currentTags,
+              currentCategory: currentCategory,
+              onSortChanged: (sort) {
+                ref.read(topicSortProvider.notifier).state = sort;
+              },
+              onTagRemoved: (tag) {
+                final tags = ref.read(tabTagsProvider(currentCategoryId));
+                ref.read(tabTagsProvider(currentCategoryId).notifier).state =
+                    tags.where((t) => t != tag).toList();
+              },
+              onAddTag: _openTagSelection,
+              onTabTap: (index) {
+                if (index == _currentTabIndex) {
+                  _getListKey(_currentCategoryId()).currentState?.scrollToTop();
+                }
+              },
+              onCategoryManager: _openCategoryManager,
+              onSearch: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SearchPage()),
               ),
-            ),
-            ),
-          ),
-        ),
-        // 分类 Tab 行（始终可见）
-        GestureDetector(
-          onTap: () {
-            ref.read(barVisibilityProvider.notifier).state = 1.0;
-            _getListKey(_currentCategoryId()).currentState?.resetScrollDirection();
-          },
-          child: Container(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            child: Row(
-              children: [
-                Expanded(
-                  child: FadingEdgeScrollView(
-                    child: TabBar(
-                      controller: _tabController,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      tabs: _buildCategoryTabs(pinnedIds, categoryMapAsync.value ?? {}),
-                      labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-                      dividerColor: Colors.transparent,
-                      onTap: (index) {
-                        if (index == _currentTabIndex) {
-                          _getListKey(_currentCategoryId()).currentState?.scrollToTop();
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                // 排序栏隐藏时，渐显排序快捷按钮
-                if (barVisibility < 1.0)
-                  Opacity(
-                    opacity: 1.0 - barVisibility,
-                    child: SortDropdown(
-                      currentSort: currentSort,
-                      isLoggedIn: isLoggedIn,
-                      onSortChanged: (sort) {
-                        ref.read(topicSortProvider.notifier).state = sort;
-                      },
-                      style: SortDropdownStyle.compact,
-                    ),
-                  ),
-                // 分类浏览按钮
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    icon: const Icon(Icons.segment, size: 20),
-                    onPressed: _openCategoryManager,
-                    tooltip: '浏览分类',
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
+              onDebugTopicId: () => _showTopicIdDialog(context),
+              trailing: _buildTrailing(currentCategory, isLoggedIn),
             ),
           ),
+        ],
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            ExtendedVisibilityDetector(
+              uniqueKey: const Key('tab_all'),
+              child: _buildTabPage(null),
+            ),
+            for (int i = 0; i < pinnedIds.length; i++)
+              ExtendedVisibilityDetector(
+                uniqueKey: Key('tab_${pinnedIds[i]}'),
+                child: _buildTabPage(pinnedIds[i]),
+              ),
+          ],
         ),
-        // 排序+标签栏：跟随滚动向上滑出
-        ClipRect(
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            heightFactor: barVisibility,
-            child: barVisibility > 0
-                ? Opacity(
-                    opacity: barVisibility,
-                    child: SortAndTagsBar(
-                      currentSort: currentSort,
-                      isLoggedIn: isLoggedIn,
-                      onSortChanged: (sort) {
-                        ref.read(topicSortProvider.notifier).state = sort;
-                      },
-                      selectedTags: filter.tags,
-                      onTagRemoved: (tag) {
-                        ref.read(topicFilterProvider.notifier).removeTag(tag);
-                      },
-                      onAddTag: _openTagSelection,
-                      trailing: _buildTrailing(currentCategory, isLoggedIn),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ),
-        // 列表区域（TabBarView 支持左右滑动切换，每个页面各自带圆角裁剪）
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildTabPage(null),
-              for (final pinnedId in pinnedIds)
-                _buildTabPage(pinnedId),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  /// 构建分类 Tab 列表
-  List<Tab> _buildCategoryTabs(List<int> pinnedIds, Map<int, Category> categoryMap) {
-    final tabs = <Tab>[const Tab(text: '全部')];
-    for (final id in pinnedIds) {
-      final category = categoryMap[id];
-      if (category != null) {
-        tabs.add(Tab(text: category.name));
-      } else {
-        tabs.add(Tab(text: '...'));
-      }
-    }
-    return tabs;
+  /// 松手后根据阈值吸附到完全展开或完全折叠
+  void _snapOuterScroll() {
+    if (!_outerScrollController.hasClients) return;
+    final offset = _outerScrollController.offset;
+    if (offset <= 0 || offset >= _collapsibleHeight) return;
+
+    final target = offset > _collapsibleHeight / 2 ? _collapsibleHeight : 0.0;
+    _outerScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
   }
 
   /// 构建单个 tab 页面（带水平间距，圆角裁剪在列表内部处理）
@@ -478,6 +395,216 @@ class _TopicsPageState extends ConsumerState<TopicsPage> with TickerProviderStat
     );
   }
 }
+
+// ─── Header Delegate ───
+
+/// 自定义 SliverPersistentHeaderDelegate
+/// 包含搜索栏（可折叠）+ Tab 行（始终可见）+ 排序栏（可折叠）
+class _TopicsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double statusBarHeight;
+  final TabController tabController;
+  final List<int> pinnedIds;
+  final Map<int, Category> categoryMap;
+  final bool isLoggedIn;
+  final TopicListFilter currentSort;
+  final List<String> currentTags;
+  final Category? currentCategory;
+  final ValueChanged<TopicListFilter> onSortChanged;
+  final ValueChanged<String> onTagRemoved;
+  final VoidCallback onAddTag;
+  final ValueChanged<int> onTabTap;
+  final VoidCallback onCategoryManager;
+  final VoidCallback onSearch;
+  final VoidCallback onDebugTopicId;
+  final Widget? trailing;
+
+  _TopicsHeaderDelegate({
+    required this.statusBarHeight,
+    required this.tabController,
+    required this.pinnedIds,
+    required this.categoryMap,
+    required this.isLoggedIn,
+    required this.currentSort,
+    required this.currentTags,
+    required this.currentCategory,
+    required this.onSortChanged,
+    required this.onTagRemoved,
+    required this.onAddTag,
+    required this.onTabTap,
+    required this.onCategoryManager,
+    required this.onSearch,
+    required this.onDebugTopicId,
+    this.trailing,
+  });
+
+  @override
+  double get maxExtent => statusBarHeight + _searchBarHeight + _tabRowHeight + _sortBarHeight;
+
+  @override
+  double get minExtent => statusBarHeight + _tabRowHeight;
+
+  @override
+  bool shouldRebuild(covariant _TopicsHeaderDelegate oldDelegate) => true;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final clampedOffset = shrinkOffset.clamp(0.0, _collapsibleHeight);
+
+    // 搜索栏先折叠（shrinkOffset 0→56），排序栏后折叠（56→100）
+    final searchProgress = (clampedOffset / _searchBarHeight).clamp(0.0, 1.0);
+    final sortProgress = ((clampedOffset - _searchBarHeight) / _sortBarHeight).clamp(0.0, 1.0);
+
+    // 更新 barVisibility
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final container = ProviderScope.containerOf(context, listen: false);
+      final visibility = (1.0 - clampedOffset / _collapsibleHeight).clamp(0.0, 1.0);
+      container.read(barVisibilityProvider.notifier).state = visibility;
+    });
+
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
+    return Container(
+      color: bgColor,
+      child: Column(
+        children: [
+          // 状态栏
+          SizedBox(height: statusBarHeight),
+          // 搜索栏
+          ClipRect(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              heightFactor: 1.0 - searchProgress,
+              child: Opacity(
+                opacity: 1.0 - searchProgress,
+                child: SizedBox(
+                  height: _searchBarHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: onSearch,
+                            child: Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.search, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '搜索话题...',
+                                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (isLoggedIn) const NotificationIconButton(),
+                        if (kDebugMode)
+                          IconButton(
+                            icon: const Icon(Icons.bug_report),
+                            onPressed: onDebugTopicId,
+                            tooltip: '调试：跳转话题',
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Tab 行（始终可见）
+          SizedBox(
+            height: _tabRowHeight,
+            child: Row(
+              children: [
+                Expanded(
+                  child: FadingEdgeScrollView(
+                    child: TabBar(
+                      controller: tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      tabs: _buildTabs(),
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      indicatorSize: TabBarIndicatorSize.label,
+                      dividerColor: Colors.transparent,
+                      onTap: onTabTap,
+                    ),
+                  ),
+                ),
+                // 排序栏隐藏时，渐显排序快捷按钮
+                if (sortProgress > 0)
+                  Opacity(
+                    opacity: sortProgress,
+                    child: SortDropdown(
+                      currentSort: currentSort,
+                      isLoggedIn: isLoggedIn,
+                      onSortChanged: onSortChanged,
+                      style: SortDropdownStyle.compact,
+                    ),
+                  ),
+                // 分类浏览按钮
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton(
+                    icon: const Icon(Icons.segment, size: 20),
+                    onPressed: onCategoryManager,
+                    tooltip: '浏览分类',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 排序+标签栏
+          ClipRect(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              heightFactor: 1.0 - sortProgress,
+              child: sortProgress < 1.0
+                  ? Opacity(
+                      opacity: 1.0 - sortProgress,
+                      child: SortAndTagsBar(
+                        currentSort: currentSort,
+                        isLoggedIn: isLoggedIn,
+                        onSortChanged: onSortChanged,
+                        selectedTags: currentTags,
+                        onTagRemoved: onTagRemoved,
+                        onAddTag: onAddTag,
+                        trailing: trailing,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Tab> _buildTabs() {
+    final tabs = <Tab>[const Tab(text: '全部')];
+    for (final id in pinnedIds) {
+      final category = categoryMap[id];
+      tabs.add(Tab(text: category?.name ?? '...'));
+    }
+    return tabs;
+  }
+}
+
+// ─── TopicList ───
 
 /// 话题列表（每个 tab 一个实例，根据 categoryId + topicSortProvider 获取数据）
 class _TopicList extends ConsumerStatefulWidget {
@@ -495,8 +622,7 @@ class _TopicList extends ConsumerStatefulWidget {
 }
 
 class _TopicListState extends ConsumerState<_TopicList>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  final ScrollController _scrollController = ScrollController();
+    with AutomaticKeepAliveClientMixin {
   bool _isLoadingNewTopics = false;
 
   @override
@@ -508,109 +634,13 @@ class _TopicListState extends ConsumerState<_TopicList>
     topRight: Radius.circular(12),
   );
 
-  /// 完成一次完整显示/隐藏过渡的滚动距离（像素）
-  static const double _scrollRange = 70.0;
-  double _lastDirectionChangeOffset = 0.0;
-  double _visibilityAtDirectionChange = 1.0;
-  ScrollDirection _currentDirection = ScrollDirection.idle;
-
-  /// 松手后回弹动画
-  late final AnimationController _snapController;
-  double _snapFrom = 1.0;
-  double _snapTo = 1.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-    _snapController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    )..addListener(_onSnapTick);
-  }
-
-  @override
-  void dispose() {
-    _snapController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onSnapTick() {
-    final t = Curves.easeOut.transform(_snapController.value);
-    ref.read(barVisibilityProvider.notifier).state =
-        _snapFrom + (_snapTo - _snapFrom) * t;
-  }
-
-  /// 松手后根据当前进度吸附到 0 或 1
-  void _snapToNearest() {
-    final current = ref.read(barVisibilityProvider);
-    if (current == 0.0 || current == 1.0) return;
-    if (_snapController.isAnimating) return;
-    _snapFrom = current;
-    _snapTo = current > 0.5 ? 1.0 : 0.0;
-    _snapController.forward(from: 0.0);
-  }
-
-  void _onScroll() {
-    final currentSort = ref.read(topicSortProvider);
-    // 加载更多
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      ref.read(topicListProvider((currentSort, widget.categoryId)).notifier).loadMore();
-    }
-    // 滚动方向
-    final direction = _scrollController.position.userScrollDirection;
-    if (direction == ScrollDirection.idle) return;
-
-    // 用户继续滚动时取消回弹动画
-    if (_snapController.isAnimating) {
-      _snapController.stop();
-    }
-
-    final currentOffset = _scrollController.position.pixels;
-
-    // 方向改变时，记录起点和当时的可见度
-    if (direction != _currentDirection) {
-      _currentDirection = direction;
-      _lastDirectionChangeOffset = currentOffset;
-      _visibilityAtDirectionChange = ref.read(barVisibilityProvider);
-    }
-
-    // 根据滚动距离计算进度
-    final rawDelta = (currentOffset - _lastDirectionChangeOffset).abs();
-    final progress = (rawDelta / _scrollRange).clamp(0.0, 1.0);
-
-    double newVisibility;
-    if (direction == ScrollDirection.forward) {
-      // 向上滚动 → 渐显
-      newVisibility = _visibilityAtDirectionChange +
-          progress * (1.0 - _visibilityAtDirectionChange);
-    } else {
-      // 向下滚动 → 渐隐
-      newVisibility = _visibilityAtDirectionChange -
-          progress * _visibilityAtDirectionChange;
-    }
-
-    ref.read(barVisibilityProvider.notifier).state = newVisibility;
-  }
-
-  /// 外部触发显示栏时调用，重置方向追踪状态。
-  void resetScrollDirection() {
-    _visibilityAtDirectionChange = 1.0;
-    _currentDirection = ScrollDirection.idle;
-    if (_scrollController.hasClients) {
-      _lastDirectionChangeOffset = _scrollController.position.pixels;
-    }
-  }
-
   void scrollToTop() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    final controller = PrimaryScrollController.maybeOf(context);
+    controller?.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   void _openTopic(Topic topic) {
@@ -659,6 +689,7 @@ class _TopicListState extends ConsumerState<_TopicList>
               borderRadius: _topBorderRadius,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
                 children: const [
                   SizedBox(height: 100),
                   Center(child: Text('没有相关话题')),
@@ -686,13 +717,14 @@ class _TopicListState extends ConsumerState<_TopicList>
           },
           child: ClipRRect(
             borderRadius: _topBorderRadius,
-            child: NotificationListener<ScrollEndNotification>(
-              onNotification: (_) {
-                _snapToNearest();
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200) {
+                  ref.read(topicListProvider(providerKey).notifier).loadMore();
+                }
                 return false;
               },
               child: ListView.builder(
-                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(top: 8, bottom: 12),
                 itemCount: topics.length + newTopicOffset + 1,
@@ -745,6 +777,7 @@ class _TopicListState extends ConsumerState<_TopicList>
   }
 
   Widget _buildNewTopicIndicator(BuildContext context, int count, (TopicListFilter, int?) providerKey) {
+    final scrollController = PrimaryScrollController.maybeOf(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -761,7 +794,7 @@ class _TopicListState extends ConsumerState<_TopicList>
               ref.read(latestChannelProvider.notifier).clearNewTopicsForCategory(providerKey.$2);
 
               if (mounted) {
-                _scrollController.animateTo(
+                scrollController?.animateTo(
                   0,
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOut,

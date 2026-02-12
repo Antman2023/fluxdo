@@ -9,7 +9,6 @@ import 'category_provider.dart';
 import 'message_bus/notification_providers.dart';
 import 'message_bus/topic_tracking_providers.dart';
 import 'ldc_providers.dart';
-import '../widgets/topic/topic_filter_sheet.dart';
 
 class AppStateRefresher {
   AppStateRefresher._();
@@ -22,8 +21,13 @@ class AppStateRefresher {
 
   static Future<void> resetForLogout(WidgetRef ref) async {
     refreshAll(ref);
-    ref.read(topicFilterProvider.notifier).clearAll();
     ref.read(topicSortProvider.notifier).state = TopicListFilter.latest;
+    // 清理各 tab 的标签筛选
+    final pinnedIds = ref.read(pinnedCategoriesProvider);
+    ref.read(tabTagsProvider(null).notifier).state = [];
+    for (final id in pinnedIds) {
+      ref.read(tabTagsProvider(id).notifier).state = [];
+    }
     ref.read(activeCategorySlugsProvider.notifier).reset();
     await ref.read(ldcUserInfoProvider.notifier).disable();
   }

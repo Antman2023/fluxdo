@@ -250,7 +250,7 @@ class CategoryNotificationButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(8),
@@ -261,13 +261,13 @@ class CategoryNotificationButton extends StatelessWidget {
             children: [
               Icon(
                 getCategoryNotificationIcon(level),
-                size: 16,
+                size: 14,
                 color: fgColor,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Text(
                 level.label,
-                style: theme.textTheme.labelMedium?.copyWith(
+                style: theme.textTheme.labelSmall?.copyWith(
                   color: fgColor,
                   fontWeight: FontWeight.w500,
                 ),

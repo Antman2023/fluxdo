@@ -8,7 +8,6 @@ import 'package:fluxdo/models/draft.dart';
 import 'package:fluxdo/providers/discourse_providers.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
 import 'package:fluxdo/services/draft_controller.dart';
-import 'package:fluxdo/widgets/topic/topic_filter_sheet.dart';
 import 'package:fluxdo/services/preloaded_data_service.dart';
 import 'package:fluxdo/widgets/topic/topic_editor_helpers.dart';
 
@@ -179,14 +178,8 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   }
 
   void _applyCurrentFilter() async {
-    final filter = ref.read(topicFilterProvider);
-    if (filter.tags.isNotEmpty) {
-      setState(() => _selectedTags = List.from(filter.tags));
-    }
-
-    // 确定要选择的分类 ID：优先使用筛选条件中的，否则使用站点默认分类
-    int? targetCategoryId = filter.categoryId;
-    targetCategoryId ??= await PreloadedDataService().getDefaultComposerCategoryId();
+    // 使用站点默认分类
+    int? targetCategoryId = await PreloadedDataService().getDefaultComposerCategoryId();
 
     if (targetCategoryId != null && mounted) {
       // 监听 categories 加载完成
