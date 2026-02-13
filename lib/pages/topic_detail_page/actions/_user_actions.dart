@@ -56,11 +56,11 @@ extension _UserActions on _TopicDetailPageState {
       final addedToView = ref.read(topicDetailProvider(params).notifier).addPost(newPost);
 
       if (addedToView) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _scrollToPost(newPost.postNumber);
-          }
-        });
+        // 回复面板关闭后键盘收起动画约 700ms，期间 viewport 高度持续增大、
+        // maxScrollExtent 持续减小。若此时滚动，位置很快会超出 maxScrollExtent，
+        // BouncingScrollPhysics 触发弹回，表现为底部弹跳。
+        // 等待键盘完全收起（viewInsets.bottom == 0）后再滚动。
+        _scrollAfterKeyboardDismiss(newPost.postNumber);
       } else {
         if (mounted) {
           ToastService.show(
@@ -72,6 +72,19 @@ extension _UserActions on _TopicDetailPageState {
         }
       }
     }
+  }
+
+  /// 等待键盘完全收起后再滚动到指定帖子
+  void _scrollAfterKeyboardDismiss(int postNumber) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (MediaQuery.of(context).viewInsets.bottom > 0) {
+        // 键盘仍在收起中，等下一帧再检查
+        _scrollAfterKeyboardDismiss(postNumber);
+      } else {
+        _scrollToPost(postNumber);
+      }
+    });
   }
 
   Future<void> _handleEdit(Post post) async {
