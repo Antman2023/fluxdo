@@ -39,11 +39,30 @@ class AppConstants {
     _uaCompleter.complete(_cachedUserAgent!);
   }
 
-  /// 去掉 WebView UA 中的 "wv" 标识
-  /// Android WebView UA 通常是: "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/xxx; wv) ..."
-  /// 移除 "; wv" 让它看起来像 Chrome，以通过 Google OAuth 检测
+  /// 清理 WebView UA，使其看起来像普通浏览器，以通过 Google OAuth 检测
+  ///
+  /// Android: 移除 "; wv" 标识
+  /// iOS: 补充缺失的 Version/x.x 和 Safari/xxx 字段
   static String _sanitizeUserAgent(String ua) {
-    return ua.replaceAll(RegExp(r';\s*wv(?=\))'), '');
+    // Android: 移除 "; wv" 标识
+    var sanitized = ua.replaceAll(RegExp(r';\s*wv(?=\))'), '');
+
+    // iOS: WebView UA 缺少 Version/x.x 和 Safari/xxx，Google 通过此特征拒绝登录
+    // WebView: "... (KHTML, like Gecko) Mobile/15E148"
+    // Safari:  "... (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    if (Platform.isIOS && !sanitized.contains('Safari/')) {
+      final versionMatch =
+          RegExp(r'CPU (?:iPhone )?OS (\d+[_\.]\d+)').firstMatch(sanitized);
+      final version =
+          versionMatch?.group(1)?.replaceAll('_', '.') ?? '17.0';
+      sanitized = sanitized.replaceFirstMapped(
+        RegExp(r'Mobile/'),
+        (m) => 'Version/$version ${m.group(0)}',
+      );
+      sanitized = '$sanitized Safari/604.1';
+    }
+
+    return sanitized;
   }
 
   /// 异步获取 User-Agent
