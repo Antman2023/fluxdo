@@ -12,8 +12,9 @@ import 'typing_indicator.dart';
 /// 话题帖子列表
 /// 负责构建 CustomScrollView 及其 Slivers
 ///
-/// 每个帖子独立生成一个 SliverToBoxAdapter，实现帖子级虚拟化：
-/// Flutter 只构建视口附近的帖子，远离视口的帖子不会被构建。
+/// Before-center 和 after-center 帖子使用 SliverList.builder 实现虚拟化：
+/// Flutter 会在 item 离开 viewport + cacheExtent 范围时自动 dispose 对应 widget，
+/// 释放视频播放器、WebView 等资源。
 /// 长帖子内部的 HTML 分块由 ChunkedHtmlContent 的 Column + SelectionArea 处理，
 /// 保留跨块文本选择能力。
 class TopicPostList extends StatefulWidget {
@@ -258,16 +259,29 @@ class _TopicPostListState extends State<TopicPostList> {
               ),
             ),
 
-          // Before-center 帖子（文档顺序，Viewport 自动反转渲染）
-          for (int i = 0; i < centerPostIndex; i++)
-            _buildPostSliver(context, theme, posts[i], i),
+          // Before-center 帖子（SliverList.builder 实现虚拟化回收）
+          // center 之前的 sliver 向上增长，index 0 离 center 最近，需要反转映射
+          if (centerPostIndex > 0)
+            SliverList.builder(
+              itemCount: centerPostIndex,
+              itemBuilder: (context, index) {
+                final postIndex = centerPostIndex - 1 - index;
+                return _buildPostItem(context, theme, posts[postIndex], postIndex);
+              },
+            ),
 
           // 中心帖子（带 centerKey）
           _buildCenterSliver(context, theme, posts, hasFirstPost),
 
-          // After-center 帖子
-          for (int i = centerPostIndex + 1; i < posts.length; i++)
-            _buildPostSliver(context, theme, posts[i], i),
+          // After-center 帖子（SliverList.builder 实现虚拟化回收）
+          if (centerPostIndex + 1 < posts.length)
+            SliverList.builder(
+              itemCount: posts.length - centerPostIndex - 1,
+              itemBuilder: (context, index) {
+                final postIndex = centerPostIndex + 1 + index;
+                return _buildPostItem(context, theme, posts[postIndex], postIndex);
+              },
+            ),
 
           // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）
           if (!hasMoreAfter)
@@ -324,16 +338,20 @@ class _TopicPostListState extends State<TopicPostList> {
     );
   }
 
-  /// 构建单个帖子 Sliver
-  ///
-  /// 每个帖子独立一个 SliverToBoxAdapter，实现帖子级虚拟化。
-  /// 长帖子的 HTML 分块由 PostItem 内的 ChunkedHtmlContent 处理（Column + SelectionArea），
-  /// 保留跨块文本选择。
+  /// 构建单个帖子 Sliver（用于 center sliver，仍需要 SliverToBoxAdapter）
   Widget _buildPostSliver(BuildContext context, ThemeData theme, Post post, int postIndex, {Key? key}) {
-    final showDivider = dividerPostIndex == postIndex;
-
     return SliverToBoxAdapter(
       key: key,
+      child: _buildPostItem(context, theme, post, postIndex),
+    );
+  }
+
+  /// 构建单个帖子 Widget（供 SliverList.builder 的 itemBuilder 使用）
+  Widget _buildPostItem(BuildContext context, ThemeData theme, Post post, int postIndex) {
+    final showDivider = dividerPostIndex == postIndex;
+
+    return _SliverDisposeTracker(
+      postNumber: post.postNumber,
       child: _wrapContent(
         context,
         AutoScrollTag(
@@ -377,4 +395,31 @@ class _TopicPostListState extends State<TopicPostList> {
       ),
     );
   }
+}
+
+/// 临时诊断 widget：跟踪 SliverList.builder 是否真正 dispose 了帖子
+/// TODO: 确认 SliverList.builder 回收正常后删除
+class _SliverDisposeTracker extends StatefulWidget {
+  final int postNumber;
+  final Widget child;
+  const _SliverDisposeTracker({required this.postNumber, required this.child});
+  @override
+  State<_SliverDisposeTracker> createState() => _SliverDisposeTrackerState();
+}
+
+class _SliverDisposeTrackerState extends State<_SliverDisposeTracker> {
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('[SliverTracker] #${widget.postNumber} created');
+  }
+
+  @override
+  void dispose() {
+    debugPrint('[SliverTracker] #${widget.postNumber} disposed');
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

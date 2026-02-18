@@ -22,6 +22,16 @@ mixin _SearchMixin on _DiscourseServiceBase {
     return SearchResult.fromJson(response.data);
   }
 
+  /// AI 语义搜索
+  /// 返回格式与标准搜索一致（使用 GroupedSearchResultSerializer）
+  Future<SearchResult> semanticSearch({required String query}) async {
+    final response = await _dio.get(
+      '/discourse-ai/embeddings/semantic-search',
+      queryParameters: {'q': query},
+    );
+    return SearchResult.fromJson(response.data);
+  }
+
   /// 获取最近搜索记录
   Future<List<String>> getRecentSearches() async {
     try {

@@ -9,7 +9,7 @@ import '../../utils/time_utils.dart';
 import '../common/smart_avatar.dart';
 import '../common/topic_badges.dart';
 
-/// 搜索结果帖子卡片
+/// 搜索结果帖子卡片 — 与话题列表卡片风格一致的紧凑横向布局
 class SearchPostCard extends ConsumerWidget {
   final SearchPost post;
   final VoidCallback? onTap;
@@ -46,11 +46,11 @@ class SearchPostCard extends ConsumerWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -58,122 +58,129 @@ class SearchPostCard extends ConsumerWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. 标题行
-              if (topic != null)
-                Row(
+              // 左侧：用户头像
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: SmartAvatar(
+                  imageUrl: post.getAvatarUrl().isNotEmpty
+                      ? post.getAvatarUrl(size: 68)
+                      : null,
+                  radius: 17,
+                  fallbackText: post.username,
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 10),
+              // 右侧：多行内容
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _buildTopicTitle(post, topic, theme)),
-                    // 楼层号
-                    if (post.postNumber > 1)
-                      Container(
-                        margin: const EdgeInsets.only(left: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                    // 第1行：标题 + 楼层号/AI标记
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTopicTitle(post, topic, theme),
                         ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '#${post.postNumber}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                        if (post.isAiGenerated || post.postNumber > 1)
+                          const SizedBox(width: 8),
+                        if (post.isAiGenerated)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Icon(Icons.auto_awesome, size: 14, color: theme.colorScheme.tertiary),
+                          ),
+                        if (post.postNumber > 1)
+                          Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '#${post.postNumber}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    // 摘要（紧凑显示，最多2行）
+                    if (post.blurb.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      _buildBlurb(post.blurb, theme),
+                    ],
+
+                    const SizedBox(height: 6),
+
+                    // 第2行：分类+标签（左） + 点赞+时间（右），与 TopicCard 一致
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 左侧：分类和标签
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              if (category != null)
+                                CategoryBadge(
+                                  category: category,
+                                  faIcon: faIcon,
+                                  logoUrl: logoUrl,
+                                ),
+                              if (topic != null)
+                                ...topic.tags
+                                    .take(3)
+                                    .map((tag) => TagBadge(name: tag.name)),
+                            ],
                           ),
                         ),
-                      ),
-                  ],
-                ),
-
-              const SizedBox(height: 10),
-
-              // 2. 分类与标签行
-              if (topic != null && (category != null || topic.tags.isNotEmpty))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      // 分类 Badge
-                      if (category != null)
-                        CategoryBadge(
-                          category: category,
-                          faIcon: faIcon,
-                          logoUrl: logoUrl,
+                        // 右侧：点赞 + 时间
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (post.likeCount > 0) ...[
+                              _buildStat(
+                                context,
+                                Icons.favorite_border_rounded,
+                                post.likeCount,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '·',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Text(
+                              TimeUtils.formatRelativeTime(post.createdAt),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
                         ),
-
-                      // 标签 Badges
-                      ...topic.tags
-                          .take(3)
-                          .map((tag) => TagBadge(name: tag.name)),
-                    ],
-                  ),
-                ),
-
-              // 3. 帖子摘要
-              if (post.blurb.isNotEmpty) ...[
-                _buildBlurb(post.blurb, theme),
-                const SizedBox(height: 12),
-              ],
-
-              // 4. 底部信息栏
-              Row(
-                children: [
-                  // 用户头像
-                  SmartAvatar(
-                    imageUrl: post.getAvatarUrl().isNotEmpty
-                        ? post.getAvatarUrl(size: 48)
-                        : null,
-                    radius: 12,
-                    fallbackText: post.username,
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    post.username,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
+                      ],
                     ),
-                  ),
-
-                  const Spacer(),
-
-                  // 点赞数
-                  if (post.likeCount > 0) ...[
-                    Icon(
-                      Icons.favorite_border_rounded,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      NumberUtils.formatCount(post.likeCount),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
                   ],
-
-                  // 时间
-                  Text(
-                    TimeUtils.formatRelativeTime(post.createdAt),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.7,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -182,79 +189,136 @@ class SearchPostCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildTopicTitle(SearchPost post, SearchTopic topic, ThemeData theme) {
+  Widget _buildTopicTitle(
+      SearchPost post, SearchTopic? topic, ThemeData theme) {
+    if (topic == null) return const SizedBox.shrink();
+
+    final titleStyle = theme.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.3,
+    );
+
     // 如果有高亮标题，使用高亮版本
     if (post.topicTitleHeadline != null &&
         post.topicTitleHeadline!.isNotEmpty) {
-      return _buildHighlightedText(
-        post.topicTitleHeadline!,
-        theme,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          height: 1.3,
-        ),
-      );
+      return _buildHighlightedTitle(post.topicTitleHeadline!, topic, theme, titleStyle);
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (topic.closed)
-          Padding(
-            padding: const EdgeInsets.only(right: 6, top: 2),
-            child: Icon(Icons.lock, size: 16, color: theme.colorScheme.outline),
-          ),
-        if (topic.archived)
-          Padding(
-            padding: const EdgeInsets.only(right: 6, top: 2),
-            child: Icon(
-              Icons.archive,
-              size: 16,
-              color: theme.colorScheme.outline,
+    return Text.rich(
+      TextSpan(
+        style: titleStyle,
+        children: [
+          if (topic.closed)
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  Icons.lock_outline,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-          ),
-        Expanded(
-          child: Text(
-            topic.title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              height: 1.3,
+          if (topic.archived)
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  Icons.archive_outlined,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          TextSpan(text: topic.title),
+        ],
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  /// 带状态图标的高亮标题
+  Widget _buildHighlightedTitle(
+      String headline, SearchTopic topic, ThemeData theme, TextStyle? style) {
+    final spans = <InlineSpan>[];
+
+    // 状态图标
+    if (topic.closed) {
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Icon(Icons.lock_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
         ),
-      ],
+      ));
+    }
+    if (topic.archived) {
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Icon(Icons.archive_outlined, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ));
+    }
+
+    // 解析高亮文本
+    final regex = RegExp(r'<span class="search-highlight">(.*?)</span>');
+    final matches = regex.allMatches(headline);
+
+    if (matches.isEmpty) {
+      final cleanText = headline.replaceAll(RegExp(r'<[^>]*>'), '');
+      spans.add(TextSpan(text: cleanText));
+    } else {
+      int lastEnd = 0;
+      for (final match in matches) {
+        if (match.start > lastEnd) {
+          spans.add(TextSpan(
+            text: headline.substring(lastEnd, match.start).replaceAll(RegExp(r'<[^>]*>'), ''),
+          ));
+        }
+        spans.add(TextSpan(
+          text: match.group(1) ?? '',
+          style: TextStyle(
+            backgroundColor: theme.colorScheme.primaryContainer,
+            color: theme.colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.w600,
+          ),
+        ));
+        lastEnd = match.end;
+      }
+      if (lastEnd < headline.length) {
+        spans.add(TextSpan(
+          text: headline.substring(lastEnd).replaceAll(RegExp(r'<[^>]*>'), ''),
+        ));
+      }
+    }
+
+    return Text.rich(
+      TextSpan(style: style, children: spans),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
   Widget _buildBlurb(String blurb, ThemeData theme) {
-    return _buildHighlightedText(
-      blurb,
-      theme,
-      style: theme.textTheme.bodyMedium?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-        height: 1.4,
-      ),
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      height: 1.4,
     );
-  }
 
-  Widget _buildHighlightedText(
-    String text,
-    ThemeData theme, {
-    TextStyle? style,
-  }) {
-    // Discourse 使用 <span class="search-highlight">...</span> 来高亮
     final regex = RegExp(r'<span class="search-highlight">(.*?)</span>');
-    final matches = regex.allMatches(text);
+    final matches = regex.allMatches(blurb);
 
     if (matches.isEmpty) {
-      // 没有高亮，直接显示纯文本（移除其他 HTML 标签）
-      final cleanText = text.replaceAll(RegExp(r'<[^>]*>'), '');
+      final cleanText = blurb.replaceAll(RegExp(r'<[^>]*>'), '');
       return Text(
         cleanText,
         style: style,
-        maxLines: 3,
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
       );
     }
@@ -263,19 +327,15 @@ class SearchPostCard extends ConsumerWidget {
     int lastEnd = 0;
 
     for (final match in matches) {
-      // 添加高亮前的文本
       if (match.start > lastEnd) {
-        final beforeText = text
+        final beforeText = blurb
             .substring(lastEnd, match.start)
             .replaceAll(RegExp(r'<[^>]*>'), '');
         spans.add(TextSpan(text: beforeText));
       }
-
-      // 添加高亮文本
-      final highlightedText = match.group(1) ?? '';
       spans.add(
         TextSpan(
-          text: highlightedText,
+          text: match.group(1) ?? '',
           style: TextStyle(
             backgroundColor: theme.colorScheme.primaryContainer,
             color: theme.colorScheme.onPrimaryContainer,
@@ -283,13 +343,11 @@ class SearchPostCard extends ConsumerWidget {
           ),
         ),
       );
-
       lastEnd = match.end;
     }
 
-    // 添加剩余文本
-    if (lastEnd < text.length) {
-      final afterText = text
+    if (lastEnd < blurb.length) {
+      final afterText = blurb
           .substring(lastEnd)
           .replaceAll(RegExp(r'<[^>]*>'), '');
       spans.add(TextSpan(text: afterText));
@@ -297,8 +355,24 @@ class SearchPostCard extends ConsumerWidget {
 
     return RichText(
       text: TextSpan(style: style, children: spans),
-      maxLines: 3,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _buildStat(BuildContext context, IconData icon, int count) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurfaceVariant;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 3),
+        Text(
+          NumberUtils.formatCount(count),
+          style: theme.textTheme.labelSmall?.copyWith(color: color),
+        ),
+      ],
     );
   }
 }

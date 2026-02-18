@@ -195,6 +195,12 @@ class PreloadedDataService {
     return 10; // Discourse 默认值
   }
 
+  /// 检查站点是否开启了 AI 语义搜索
+  Future<bool> isAiSemanticSearchEnabled() async {
+    await _ensureLoaded();
+    return _siteSettings?['ai_embeddings_semantic_search_enabled'] == true;
+  }
+
   /// 获取可用的回应表情列表
   Future<List<String>> getEnabledReactions() async {
     await _ensureLoaded();

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/discourse_providers.dart';
 import '../models/search_filter.dart';
 import '../models/search_result.dart';
+import '../services/preloaded_data_service.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/common/loading_spinner.dart';
 import '../widgets/search/search_filter_panel.dart';
@@ -29,7 +30,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   String _currentQuery = '';
   int _currentPage = 1;
   bool _isLoadingMore = false;
-  List<SearchPost> _allPosts = [];
+  List<SearchPost> _standardPosts = []; // 标准搜索结果（原始）
+  List<SearchPost> _allPosts = [];      // 最终展示列表（融合后）
   List<SearchUser> _allUsers = [];
   bool _hasMorePosts = false;
   bool _hasMoreUsers = false;
@@ -44,10 +46,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   // 高级过滤器
   late SearchFilter _filter;
 
+  // AI 语义搜索
+  bool _siteAiSearchAvailable = false;
+  List<SearchPost> _aiPosts = [];  // AI 搜索结果（原始）
+  bool _isSearchingAi = false;
+
   @override
   void initState() {
     super.initState();
     _filter = widget.initialFilter ?? const SearchFilter();
+    PreloadedDataService().isAiSemanticSearchEnabled().then((enabled) {
+      if (mounted) setState(() => _siteAiSearchAvailable = enabled);
+    });
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
       _currentQuery = widget.initialQuery!;
@@ -127,7 +137,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       setState(() {
         _currentQuery = trimmed;
         _currentPage = 1;
+        _standardPosts = [];
         _allPosts = [];
+        _aiPosts = [];
         _allUsers = [];
         _hasMorePosts = false;
         _hasMoreUsers = false;
@@ -143,8 +155,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       ref.read(searchSettingsProvider.notifier).setSortOrder(order);
       setState(() {
         _currentPage = 1;
+        _standardPosts = [];
         _allPosts = [];
         _allUsers = [];
+        // 切换排序时清空 AI 结果
+        _aiPosts = [];
+        _isSearchingAi = false;
       });
       _performSearch();
     }
@@ -154,7 +170,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     setState(() {
       _filter = newFilter;
       _currentPage = 1;
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
     });
     if (_currentQuery.isNotEmpty) {
@@ -204,6 +222,85 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
+  /// RRF（Reciprocal Rank Fusion）算法，与 Discourse 前端一致
+  /// 将标准搜索结果和 AI 搜索结果按倒数排名融合
+  List<SearchPost> _mergeWithRRF(List<SearchPost> standard, List<SearchPost> ai) {
+    if (ai.isEmpty) return standard;
+    if (standard.isEmpty) return ai;
+
+    const k = 5; // RRF 常数，与 Discourse 一致
+
+    // 为每个结果计算 RRF 分数，key 为 topic_id
+    final scoreMap = <int, double>{};
+    final postMap = <int, SearchPost>{};
+
+    for (var i = 0; i < standard.length; i++) {
+      final topicId = standard[i].topic?.id;
+      if (topicId == null) continue;
+      scoreMap[topicId] = 1.0 / (i + k);
+      postMap[topicId] = standard[i];
+    }
+
+    for (var i = 0; i < ai.length; i++) {
+      final topicId = ai[i].topic?.id;
+      if (topicId == null) continue;
+      if (scoreMap.containsKey(topicId)) {
+        // 两个列表都有的结果，分数累加（排名更靠前）
+        scoreMap[topicId] = scoreMap[topicId]! + 1.0 / (i + k);
+      } else {
+        scoreMap[topicId] = 1.0 / (i + k);
+        postMap[topicId] = ai[i];
+      }
+    }
+
+    // 按 RRF 分数降序排列
+    final sortedIds = scoreMap.keys.toList()
+      ..sort((a, b) => scoreMap[b]!.compareTo(scoreMap[a]!));
+
+    return sortedIds.map((id) => postMap[id]!).toList();
+  }
+
+  /// 根据当前 AI 开关状态重新构建展示列表
+  void _rebuildDisplayPosts() {
+    final settings = ref.read(searchSettingsProvider);
+    final showAi = _siteAiSearchAvailable &&
+        settings.aiSearchEnabled &&
+        settings.sortOrder == SearchSortOrder.relevance &&
+        _aiPosts.isNotEmpty;
+
+    if (showAi) {
+      _allPosts = _mergeWithRRF(_standardPosts, _aiPosts);
+    } else {
+      _allPosts = List.of(_standardPosts);
+    }
+  }
+
+  bool _shouldTriggerAiSearch() {
+    final sortOrder = ref.read(searchSettingsProvider).sortOrder;
+    final aiEnabled = ref.read(searchSettingsProvider).aiSearchEnabled;
+    return _siteAiSearchAvailable && aiEnabled && sortOrder == SearchSortOrder.relevance;
+  }
+
+  void _triggerAiSearch(String query) async {
+    setState(() => _isSearchingAi = true);
+    try {
+      final service = ref.read(discourseServiceProvider);
+      final aiResult = await service.semanticSearch(query: query);
+      if (!mounted) return;
+
+      // 标记为 AI 生成
+      _aiPosts = aiResult.posts.map((p) => p.copyWith(isAiGenerated: true)).toList();
+
+      setState(() {
+        _isSearchingAi = false;
+        _rebuildDisplayPosts();
+      });
+    } catch (e) {
+      // 静默失败，404/403/429 都不影响标准搜索
+      if (mounted) setState(() => _isSearchingAi = false);
+    }
+  }
+
   Future<void> _performSearch() async {
     if (_currentQuery.isEmpty) return;
 
@@ -233,6 +330,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         searchQuery = '$searchQuery order:${sortOrder.value}';
       }
 
+      // 首页搜索时并行触发 AI 语义搜索
+      if (_currentPage == 1 && _shouldTriggerAiSearch()) {
+        _triggerAiSearch(cleanQuery);
+      }
+
       final result = await service.search(
         query: searchQuery,
         page: _currentPage,
@@ -241,14 +343,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
       setState(() {
         if (_currentPage == 1) {
-          _allPosts = result.posts;
+          _standardPosts = result.posts;
           _allUsers = result.users;
         } else {
-          _allPosts.addAll(result.posts);
+          _standardPosts.addAll(result.posts);
         }
         _hasMorePosts = result.hasMorePosts;
         _hasMoreUsers = result.hasMoreUsers;
         _isLoadingMore = false;
+        _rebuildDisplayPosts();
       });
     } catch (e) {
       setState(() {
@@ -274,8 +377,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _searchController.clear();
     setState(() {
       _currentQuery = '';
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
+      _isSearchingAi = false;
       _hasMorePosts = false;
       _hasMoreUsers = false;
       _currentPage = 1;
@@ -287,7 +393,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     setState(() {
       _filter = _filter.copyWith(clearCategory: true);
       _currentPage = 1;
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
     });
     if (_currentQuery.isNotEmpty) {
@@ -301,7 +409,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         tags: _filter.tags.where((t) => t != tag).toList(),
       );
       _currentPage = 1;
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
     });
     if (_currentQuery.isNotEmpty) {
@@ -313,7 +423,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     setState(() {
       _filter = _filter.copyWith(clearStatus: true);
       _currentPage = 1;
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
     });
     if (_currentQuery.isNotEmpty) {
@@ -325,7 +437,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     setState(() {
       _filter = _filter.copyWith(clearDateRange: true);
       _currentPage = 1;
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
     });
     if (_currentQuery.isNotEmpty) {
@@ -337,7 +451,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     setState(() {
       _filter = _filter.clear();
       _currentPage = 1;
+      _standardPosts = [];
       _allPosts = [];
+      _aiPosts = [];
       _allUsers = [];
     });
     if (_currentQuery.isNotEmpty) {
@@ -590,6 +706,52 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   onChanged: _onSortChanged,
                 ),
                 const Spacer(),
+                // AI 搜索开关（仅当站点支持时显示）
+                if (_siteAiSearchAvailable) ...[
+                  if (_isSearchingAi)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                      ),
+                    ),
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 16,
+                    color: ref.watch(searchSettingsProvider).sortOrder == SearchSortOrder.relevance
+                        ? theme.colorScheme.tertiary
+                        : theme.colorScheme.outline,
+                  ),
+                  SizedBox(
+                    height: 32,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Switch(
+                        value: ref.watch(searchSettingsProvider).aiSearchEnabled &&
+                            ref.watch(searchSettingsProvider).sortOrder == SearchSortOrder.relevance,
+                        onChanged: ref.watch(searchSettingsProvider).sortOrder == SearchSortOrder.relevance
+                            ? (value) {
+                                ref.read(searchSettingsProvider.notifier).setAiSearchEnabled(value);
+                                setState(() {
+                                  _rebuildDisplayPosts();
+                                  // 开启时若还没有 AI 结果，触发搜索
+                                  if (value && _aiPosts.isEmpty && _currentQuery.isNotEmpty) {
+                                    final cleanQuery = _stripOrderFromQuery(_currentQuery);
+                                    _triggerAiSearch(cleanQuery);
+                                  }
+                                });
+                              }
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Text(
                   '${_allPosts.length}${_hasMorePosts ? '+' : ''} 条结果',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -608,7 +770,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 (_allUsers.isNotEmpty ? _allUsers.length + 1 : 0) +
                 (_isLoadingMore ? 1 : 0),
             itemBuilder: (context, index) {
-              // 帖子结果
+              // 帖子结果（标准 + AI 混合）
               if (index < _allPosts.length) {
                 return SearchPostCard(
                   post: _allPosts[index],

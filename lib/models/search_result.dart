@@ -69,6 +69,9 @@ class SearchPost {
   final String? topicTitleHeadline;
   final SearchTopic? topic;
 
+  /// 是否由 AI 语义搜索生成（客户端标记，非 API 返回）
+  final bool isAiGenerated;
+
   SearchPost({
     required this.id,
     required this.username,
@@ -79,6 +82,7 @@ class SearchPost {
     required this.postNumber,
     this.topicTitleHeadline,
     this.topic,
+    this.isAiGenerated = false,
   });
 
   factory SearchPost.fromJson(
@@ -96,6 +100,19 @@ class SearchPost {
       topic: topicJson != null ? SearchTopic.fromJson(topicJson) : null,
     );
   }
+
+  SearchPost copyWith({bool? isAiGenerated}) => SearchPost(
+    id: id,
+    username: username,
+    avatarTemplate: avatarTemplate,
+    createdAt: createdAt,
+    likeCount: likeCount,
+    blurb: blurb,
+    postNumber: postNumber,
+    topicTitleHeadline: topicTitleHeadline,
+    topic: topic,
+    isAiGenerated: isAiGenerated ?? this.isAiGenerated,
+  );
 
   String getAvatarUrl({int size = 120}) {
     if (avatarTemplate.isEmpty) return '';
