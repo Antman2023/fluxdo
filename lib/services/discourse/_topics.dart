@@ -97,9 +97,16 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     if (usernameFilters != null) {
       queryParams['username_filters'] = usernameFilters;
     }
+    final options = trackVisit
+        ? Options(headers: {
+            'Discourse-Track-View': '1',
+            'Discourse-Track-View-Topic-Id': '$id',
+          })
+        : null;
     final response = await _dio.get(
       path,
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      options: options,
     );
     return TopicDetail.fromJson(response.data);
   }
@@ -111,9 +118,16 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     if (trackVisit) {
       queryParams['track_visit'] = true;
     }
+    // 通过 slug 获取时无法提前知道 topic_id，仅设置 Track-View 头
+    final options = trackVisit
+        ? Options(headers: {
+            'Discourse-Track-View': '1',
+          })
+        : null;
     final response = await _dio.get(
       path,
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      options: options,
     );
     return TopicDetail.fromJson(response.data);
   }
