@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -86,6 +87,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
   final _scrollController = ScrollController();
   final _pangu = Pangu();
   bool _isApplyingPangu = false;
+  Timer? _panguTimer;
 
   bool _showPreview = false;
   String _previousText = '';
@@ -113,6 +115,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
   @override
   void dispose() {
+    _panguTimer?.cancel();
     widget.controller.removeListener(_handleTextChange);
     _scrollController.dispose();
     if (_ownsFocusNode) {
@@ -128,6 +131,7 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
 
     // 只在文本增加时处理
     if (currentText.length <= _previousText.length) {
+      _panguTimer?.cancel();
       _previousText = currentText;
       return;
     }
@@ -229,32 +233,13 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
       }
     }
 
-    if (ref.read(preferencesProvider).autoPanguSpacing &&
-        !_isApplyingPangu &&
-        (widget.controller.value.composing.isValid &&
-            !widget.controller.value.composing.isCollapsed)) {
-      _previousText = currentText;
-      return;
-    }
-
-    if (ref.read(preferencesProvider).autoPanguSpacing &&
-        !_isApplyingPangu &&
-        selection.isValid) {
-      final panguText = _pangu.spacingText(currentText);
-      if (panguText != currentText) {
-        _isApplyingPangu = true;
-        final cursor = selection.start.clamp(0, currentText.length);
-        final prefix = currentText.substring(0, cursor);
-        final newCursor = _pangu.spacingText(prefix).length;
-        final clampedCursor = newCursor.clamp(0, panguText.length);
-        widget.controller.value = TextEditingValue(
-          text: panguText,
-          selection: TextSelection.collapsed(offset: clampedCursor),
-        );
-        _previousText = panguText;
-        _isApplyingPangu = false;
-        return;
-      }
+    // 防抖执行 pangu 混排，避免在 IME 自动补全括号等多步操作中途修改 controller
+    // 导致平台文本输入状态与 IME 内部状态不同步
+    if (ref.read(preferencesProvider).autoPanguSpacing && !_isApplyingPangu) {
+      _panguTimer?.cancel();
+      _panguTimer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) _applyPanguSpacing();
+      });
     }
 
     _previousText = currentText;
