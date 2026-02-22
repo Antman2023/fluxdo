@@ -387,6 +387,8 @@ class MarkdownEditorState extends ConsumerState<MarkdownEditor> {
     final currentText = widget.controller.text;
     final selection = widget.controller.selection;
     if (currentText.isEmpty || !selection.isValid) return;
+    // 有范围选中时不处理，避免破坏工具栏插入占位符后的选中状态
+    if (!selection.isCollapsed) return;
     if (widget.controller.value.composing.isValid &&
         !widget.controller.value.composing.isCollapsed) {
       return;

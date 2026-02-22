@@ -207,12 +207,30 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     }
   }
 
-  /// 用指定前后缀包裹选中文本
-  void wrapSelection(String start, String end) {
+  /// 用指定前后缀包裹选中文本（无选中时插入占位符并选中）
+  void wrapSelection(String start, String end, {String? placeholder}) {
     final selection = widget.controller.selection;
     if (!selection.isValid) return;
 
     final text = widget.controller.text;
+
+    if (selection.start == selection.end && placeholder != null) {
+      // 没有选中文本，插入带占位符的内容
+      final wrapped = '$start$placeholder$end';
+      final insertPos = selection.start;
+      final newText = text.replaceRange(insertPos, insertPos, wrapped);
+
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: insertPos + start.length,
+          extentOffset: insertPos + start.length + placeholder.length,
+        ),
+      );
+      widget.focusNode?.requestFocus();
+      return;
+    }
+
     final selectedText = selection.textInside(text);
     final newText = text.replaceRange(
       selection.start,
@@ -222,8 +240,10 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
 
     widget.controller.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(
-          offset: selection.start + start.length + selectedText.length + end.length),
+      selection: TextSelection(
+        baseOffset: selection.start + start.length,
+        extentOffset: selection.start + start.length + selectedText.length,
+      ),
     );
   }
 
@@ -763,11 +783,11 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                         ),
                         _ToolbarButton(
                           icon: FontAwesomeIcons.bold,
-                          onPressed: () => wrapSelection('**', '**'),
+                          onPressed: () => wrapSelection('**', '**', placeholder: '粗体文本'),
                         ),
                         _ToolbarButton(
                           icon: FontAwesomeIcons.italic,
-                          onPressed: () => wrapSelection('*', '*'),
+                          onPressed: () => wrapSelection('*', '*', placeholder: '斜体文本'),
                         ),
                         _ToolbarButton(
                           icon: FontAwesomeIcons.strikethrough,
