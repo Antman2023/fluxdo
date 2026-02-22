@@ -183,12 +183,51 @@ class _TopicPostListState extends State<TopicPostList> {
     }
 
     if (firstVisiblePostIndex != null) {
-      final postNumber = posts[firstVisiblePostIndex].postNumber;
+      int reportPostNumber = posts[firstVisiblePostIndex].postNumber;
+
+      // 接近列表底部且无更多帖子时，用视口中线来判断当前帖子
+      // 找到顶部已越过中线的楼层号最大的帖子，使楼层标签逐楼递增
+      if (!hasMoreAfter && scrollController.hasClients) {
+        final position = scrollController.position;
+        final distanceToBottom = position.maxScrollExtent - position.pixels;
+
+        if (distanceToBottom < viewportHeight * 0.5) {
+          // 完全到底时，直接取可见帖子中最大楼层号（兜底）
+          if (distanceToBottom <= 1.0 && visiblePostNumbers.isNotEmpty) {
+            reportPostNumber = visiblePostNumbers.reduce((a, b) => a > b ? a : b);
+          } else {
+            // 接近底部但未到底时，用视口中线渐进过渡
+            final centerLine = viewportHeight * 0.5;
+            int? bestPostNumber;
+
+            for (final entry in tagMap.entries) {
+              final pi = entry.key;
+              if (pi >= posts.length) continue;
+              final ctx = entry.value.context;
+              if (!ctx.mounted) continue;
+              final rb = ctx.findRenderObject() as RenderBox?;
+              if (rb == null || !rb.hasSize) continue;
+              final topY = rb.localToGlobal(Offset.zero).dy;
+              // 帖子顶部已越过视口中线
+              if (topY <= centerLine) {
+                final pn = posts[pi].postNumber;
+                if (bestPostNumber == null || pn > bestPostNumber) {
+                  bestPostNumber = pn;
+                }
+              }
+            }
+
+            if (bestPostNumber != null && bestPostNumber > reportPostNumber) {
+              reportPostNumber = bestPostNumber;
+            }
+          }
+        }
+      }
 
       // 防止重复报告相同的帖子
-      if (postNumber != _lastReportedPostNumber) {
-        _lastReportedPostNumber = postNumber;
-        widget.onFirstVisiblePostChanged(postNumber);
+      if (reportPostNumber != _lastReportedPostNumber) {
+        _lastReportedPostNumber = reportPostNumber;
+        widget.onFirstVisiblePostChanged(reportPostNumber);
       }
     }
   }
